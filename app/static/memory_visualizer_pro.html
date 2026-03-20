@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resonant Memory - 3D Hash Sphere Visualizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a0f; color: #fff; overflow: hidden; }
+        #container { width: 100vw; height: 100vh; position: relative; }
+        #canvas { width: 100%; height: 100%; }
+
+        .panel { position: absolute; background: rgba(17, 17, 24, 0.95); border: 1px solid #2a2a3a; border-radius: 8px; padding: 10px; backdrop-filter: blur(10px); font-size: 0.75em; z-index: 10; cursor: default; user-select: none; }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; cursor: move; margin: -10px -10px 8px -10px; padding: 8px 10px; background: rgba(42, 42, 58, 0.5); border-radius: 8px 8px 0 0; }
+        .panel-header h2 { margin: 0; border: none; padding: 0; color: #888; font-size: 0.95em; }
+        .panel-controls { display: flex; gap: 4px; }
+        .panel-btn { width: 20px; height: 20px; padding: 0; margin: 0; border-radius: 50%; font-size: 10px; line-height: 20px; text-align: center; cursor: pointer; border: none; color: #fff; }
+        .panel-btn.close { background: #e74c3c; }
+        .panel-btn.close:hover { background: #c0392b; }
+        .panel-btn.minimize { background: #f39c12; }
+        .panel-btn.minimize:hover { background: #d68910; }
+        .panel.minimized .panel-content { display: none; }
+
+        #controls { top: 10px; left: 10px; width: 240px; max-height: 96vh; overflow-y: auto; }
+        #stats-panel { bottom: 10px; right: 10px; width: 260px; }
+        #info-panel { top: 10px; right: 10px; width: 280px; max-height: 50vh; overflow-y: auto; display: none; }
+        #memory-list-panel { bottom: 10px; left: 10px; width: 260px; max-height: 35vh; overflow-y: auto; display: none; }
+
+        h3 { color: #888; margin: 6px 0 4px; font-size: 0.85em; }
+        .control-group { margin-bottom: 8px; }
+        .control-group label { display: block; margin-bottom: 2px; color: #a0a0a0; font-size: 0.75em; }
+
+        select, input, button { width: 100%; padding: 5px 8px; background: #1a1a2e; border: 1px solid #2a2a3a; border-radius: 4px; color: #fff; font-size: 0.8em; margin-bottom: 4px; }
+        input[type="range"] { appearance: auto; -webkit-appearance: auto; }
+        button { cursor: pointer; background: #2a2a3a; border: 1px solid #3a3a4a; font-weight: bold; }
+        button:hover { opacity: 0.9; }
+        .btn-success { background: linear-gradient(135deg, #2ecc71, #27ae60); }
+        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .btn-warning { background: linear-gradient(135deg, #f39c12, #e67e22); }
+        .btn-danger { background: linear-gradient(135deg, #e74c3c, #c0392b); }
+        .btn-secondary { background: #1a1a2e; border: 1px solid #2a2a3a; }
+
+        .stat-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .stat-label { color: #a0a0a0; }
+        .stat-value { color: #888; font-weight: bold; }
+        .stat-value.success { color: #2ecc71; }
+        .stat-value.warning { color: #f39c12; }
+        .stat-value.danger { color: #e74c3c; }
+        .stat-value.info { color: #667eea; }
+
+        .legend-item { display: flex; align-items: center; margin: 3px 0; font-size: 0.8em; }
+        .legend-color { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; }
+
+        .toggle-row { display: flex; gap: 5px; margin-bottom: 8px; }
+        .toggle-btn { flex: 1; padding: 5px; font-size: 0.75em; }
+        .toggle-btn.active { background: #3a3a4a; }
+
+        .memory-item { padding: 6px 8px; margin: 3px 0; background: #0a0a0f; border-radius: 4px; border-left: 3px solid #3a3a4a; cursor: pointer; transition: all 0.2s; font-size: 0.85em; }
+        .memory-item:hover { background: #141428; border-left-color: #667eea; }
+        .memory-item.selected { border-left-color: #2ecc71; background: #0f1a0f; }
+        .memory-item .label { font-weight: bold; color: #c0c0c0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .memory-item .meta { font-size: 0.8em; color: #666; margin-top: 2px; }
+
+        .search-box { display: flex; gap: 4px; margin-bottom: 8px; }
+        .search-box input { flex: 1; }
+        .search-box button { width: 60px; }
+
+        #panel-toolbar { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(22, 33, 62, 0.95); border: 1px solid #667eea; border-radius: 20px; padding: 5px 15px; display: flex; gap: 8px; z-index: 100; backdrop-filter: blur(10px); }
+        .toolbar-btn { width: auto; padding: 5px 10px; margin: 0; font-size: 0.7em; border-radius: 12px; opacity: 0.6; cursor: pointer; }
+        .toolbar-btn.active { opacity: 1; background: #667eea; }
+
+        #loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10, 10, 26, 0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
+        .spinner { width: 50px; height: 50px; border: 4px solid #333; border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #loading-text { margin-top: 15px; color: #888; }
+
+        .tooltip { position: absolute; background: rgba(17, 17, 24, 0.98); border: 1px solid #667eea; border-radius: 8px; padding: 12px; font-size: 12px; max-width: 320px; z-index: 200; pointer-events: none; display: none; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+        .tooltip .tt-title { color: #667eea; font-weight: 700; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tooltip .tt-row { display: flex; justify-content: space-between; padding: 2px 0; }
+        .tooltip .tt-label { color: #888; }
+        .tooltip .tt-val { color: #ccc; font-weight: 600; }
+
+        .energy-bar { height: 4px; border-radius: 2px; background: #1a1a2e; margin-top: 3px; }
+        .energy-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
+
+        .cluster-badge { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 0.7em; font-weight: 600; }
+        .cluster-alpha { background: rgba(231, 76, 60, 0.2); color: #e74c3c; }
+        .cluster-beta { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
+        .cluster-gamma { background: rgba(241, 196, 15, 0.2); color: #f1c40f; }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <div id="loading">
+        <div class="spinner"></div>
+        <div id="loading-text">Loading Memory Sphere...</div>
+    </div>
+
+    <div id="tooltip" class="tooltip"></div>
+
+    <!-- Toolbar -->
+    <div id="panel-toolbar">
+        <button class="toolbar-btn active" onclick="togglePanel('controls')">⚙ Controls</button>
+        <button class="toolbar-btn active" onclick="togglePanel('stats-panel')">📊 Stats</button>
+        <button class="toolbar-btn" onclick="togglePanel('info-panel')">🔍 Detail</button>
+        <button class="toolbar-btn" onclick="togglePanel('memory-list-panel')">📋 List</button>
+        <button class="toolbar-btn" onclick="resetCamera()">🎯 Reset</button>
+    </div>
+
+    <!-- Controls Panel -->
+    <div class="panel" id="controls">
+        <div class="panel-header" onmousedown="startDrag(event, 'controls')">
+            <h2>🧠 Memory Sphere</h2>
+            <div class="panel-controls">
+                <button class="panel-btn minimize" onclick="minimizePanel('controls')">−</button>
+                <button class="panel-btn close" onclick="hidePanel('controls')">×</button>
+            </div>
+        </div>
+        <div class="panel-content">
+            <h3>View Mode</h3>
+            <div class="toggle-row">
+                <button class="toggle-btn active" id="mode-sphere" onclick="setViewMode('sphere')">Sphere</button>
+                <button class="toggle-btn" id="mode-cluster" onclick="setViewMode('cluster')">Clusters</button>
+                <button class="toggle-btn" id="mode-timeline" onclick="setViewMode('timeline')">Timeline</button>
+            </div>
+
+            <h3>Color By</h3>
+            <div class="toggle-row">
+                <button class="toggle-btn active" id="color-cluster" onclick="setColorMode('cluster')">Cluster</button>
+                <button class="toggle-btn" id="color-resonance" onclick="setColorMode('resonance')">Resonance</button>
+                <button class="toggle-btn" id="color-energy" onclick="setColorMode('energy')">Energy</button>
+                <button class="toggle-btn" id="color-type" onclick="setColorMode('type')">Type</button>
+            </div>
+
+            <div class="control-group">
+                <label>Particle Size: <span id="size-val">2.0</span></label>
+                <input type="range" id="particle-size" min="0.5" max="8" step="0.1" value="2.0" oninput="updateParticleSize(this.value)">
+            </div>
+
+            <div class="control-group">
+                <label>Connection Distance: <span id="conn-val">3.0</span></label>
+                <input type="range" id="conn-dist" min="0" max="10" step="0.5" value="3.0" oninput="updateConnections(this.value)">
+            </div>
+
+            <div class="control-group">
+                <label>Rotation Speed: <span id="rot-val">0.2</span></label>
+                <input type="range" id="rot-speed" min="0" max="2" step="0.05" value="0.2" oninput="rotationSpeed = parseFloat(this.value); document.getElementById('rot-val').textContent = this.value;">
+            </div>
+
+            <div class="control-group">
+                <label>Min Resonance: <span id="res-val">0.0</span></label>
+                <input type="range" id="min-resonance" min="0" max="1" step="0.05" value="0" oninput="filterByResonance(parseFloat(this.value))">
+            </div>
+
+            <h3>Actions</h3>
+            <button class="btn-success" onclick="loadMemories()">🔄 Reload Memories</button>
+            <button class="btn-primary" onclick="toggleSpin()">🌀 Toggle Spin Vectors</button>
+            <button class="btn-warning" onclick="toggleConnections()">🔗 Toggle Connections</button>
+            <button class="btn-secondary" onclick="exportView()">📷 Screenshot</button>
+
+            <h3>Legend</h3>
+            <div class="legend-item"><div class="legend-color" style="background:#e74c3c"></div> Alpha Cluster</div>
+            <div class="legend-item"><div class="legend-color" style="background:#2ecc71"></div> Beta Cluster</div>
+            <div class="legend-item"><div class="legend-color" style="background:#f1c40f"></div> Gamma Cluster</div>
+            <div class="legend-item"><div class="legend-color" style="background:#667eea"></div> High Resonance</div>
+            <div class="legend-item"><div class="legend-color" style="background:#888"></div> Low Resonance</div>
+        </div>
+    </div>
+
+    <!-- Stats Panel -->
+    <div class="panel" id="stats-panel">
+        <div class="panel-header" onmousedown="startDrag(event, 'stats-panel')">
+            <h2>📊 Hash Sphere Statistics</h2>
+            <div class="panel-controls">
+                <button class="panel-btn minimize" onclick="minimizePanel('stats-panel')">−</button>
+                <button class="panel-btn close" onclick="hidePanel('stats-panel')">×</button>
+            </div>
+        </div>
+        <div class="panel-content">
+            <div class="stat-row"><span class="stat-label">Total Memories</span><span class="stat-value info" id="s-total">—</span></div>
+            <div class="stat-row"><span class="stat-label">Visible</span><span class="stat-value" id="s-visible">—</span></div>
+            <div class="stat-row"><span class="stat-label">Connections</span><span class="stat-value" id="s-connections">—</span></div>
+            <div class="stat-row"><span class="stat-label">Alpha Cluster</span><span class="stat-value" style="color:#e74c3c" id="s-alpha">—</span></div>
+            <div class="stat-row"><span class="stat-label">Beta Cluster</span><span class="stat-value" style="color:#2ecc71" id="s-beta">—</span></div>
+            <div class="stat-row"><span class="stat-label">Gamma Cluster</span><span class="stat-value" style="color:#f1c40f" id="s-gamma">—</span></div>
+            <h3>Resonance</h3>
+            <div class="stat-row"><span class="stat-label">Average</span><span class="stat-value success" id="s-avg-res">—</span></div>
+            <div class="stat-row"><span class="stat-label">Max</span><span class="stat-value warning" id="s-max-res">—</span></div>
+            <div class="stat-row"><span class="stat-label">Min</span><span class="stat-value" id="s-min-res">—</span></div>
+            <h3>Energy</h3>
+            <div class="stat-row"><span class="stat-label">Average</span><span class="stat-value info" id="s-avg-energy">—</span></div>
+            <div class="stat-row"><span class="stat-label">Total Spin</span><span class="stat-value" id="s-total-spin">—</span></div>
+            <h3>Sentiment</h3>
+            <div class="stat-row"><span class="stat-label">Average</span><span class="stat-value" id="s-avg-sentiment">—</span></div>
+            <h3>Coordinate System</h3>
+            <div style="color:#666;font-size:0.85em;line-height:1.4;">
+                🌐 XYZ: Cartesian (3D semantic space)<br>
+                🔵 r,φ,θ: Hyperspherical (radius, lat, lon)<br>
+                🌀 Spin: Quantum-inspired rotation vector
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Info Panel -->
+    <div class="panel" id="info-panel">
+        <div class="panel-header" onmousedown="startDrag(event, 'info-panel')">
+            <h2>🔍 Memory Detail</h2>
+            <div class="panel-controls">
+                <button class="panel-btn minimize" onclick="minimizePanel('info-panel')">−</button>
+                <button class="panel-btn close" onclick="hidePanel('info-panel')">×</button>
+            </div>
+        </div>
+        <div class="panel-content" id="info-content">
+            <div style="color:#666;text-align:center;padding:20px;">Click a memory node to view details</div>
+        </div>
+    </div>
+
+    <!-- Memory List Panel -->
+    <div class="panel" id="memory-list-panel">
+        <div class="panel-header" onmousedown="startDrag(event, 'memory-list-panel')">
+            <h2>📋 Memory List</h2>
+            <div class="panel-controls">
+                <button class="panel-btn minimize" onclick="minimizePanel('memory-list-panel')">−</button>
+                <button class="panel-btn close" onclick="hidePanel('memory-list-panel')">×</button>
+            </div>
+        </div>
+        <div class="panel-content">
+            <div class="search-box">
+                <input type="text" id="memory-search" placeholder="Search memories..." oninput="filterMemoryList(this.value)">
+                <button onclick="filterMemoryList(document.getElementById('memory-search').value)">🔍</button>
+            </div>
+            <div id="memory-list-items" style="max-height: 200px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <script>
+        // ─── State ───
+        let scene, camera, renderer, controls;
+        let particleGroup, connectionGroup, spinGroup, sphereOutline;
+        let memories = [];
+        let filteredMemories = [];
+        let particleMeshes = [];
+        let connectionLines = [];
+        let spinArrows = [];
+        let raycaster, mouse;
+        let hoveredIdx = -1, selectedIdx = -1;
+        let rotationSpeed = 0.2;
+        let showConnections = true;
+        let showSpins = false;
+        let viewMode = 'sphere';
+        let colorMode = 'cluster';
+        let connectionDist = 3.0;
+        let minResonanceFilter = 0;
+        let dragPanel = null, dragOffset = { x: 0, y: 0 };
+        let animationId;
+
+        // ─── API ───
+        const getApiBaseUrl = () => {
+            try {
+                if (window.parent && window.parent !== window) return window.parent.location.origin;
+            } catch (e) {}
+            return window.location.origin;
+        };
+        const API = getApiBaseUrl();
+
+        // ─── Color helpers ───
+        const CLUSTER_COLORS = { alpha: 0xe74c3c, beta: 0x2ecc71, gamma: 0xf1c40f };
+        const TYPE_COLORS = { chat: 0x3b82f6, code: 0xf59e0b, function: 0x10b981, pattern: 0x8b5cf6, concept: 0xec4899, decision: 0xef4444, insight: 0x06b6d4, anchor: 0x84cc16 };
+
+        function getColor(mem) {
+            if (colorMode === 'cluster') return CLUSTER_COLORS[mem.cluster] || 0x888888;
+            if (colorMode === 'resonance') {
+                const r = mem.resonance;
+                if (r > 0.8) return 0x667eea;
+                if (r > 0.5) return 0x2ecc71;
+                if (r > 0.2) return 0xf39c12;
+                return 0x555555;
+            }
+            if (colorMode === 'energy') {
+                const e = mem.energy;
+                if (e > 0.7) return 0xe74c3c;
+                if (e > 0.4) return 0xf39c12;
+                if (e > 0.1) return 0x2ecc71;
+                return 0x333333;
+            }
+            if (colorMode === 'type') return TYPE_COLORS[mem.type] || 0x888888;
+            return 0x888888;
+        }
+
+        function getSize(mem) {
+            const base = parseFloat(document.getElementById('particle-size').value) || 2.0;
+            return base * (0.5 + mem.resonance * 1.5);
+        }
+
+        // ─── Three.js Setup ───
+        function initScene() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a0f);
+            scene.fog = new THREE.FogExp2(0x0a0a0f, 0.015);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(15, 10, 20);
+
+            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.minDistance = 3;
+            controls.maxDistance = 100;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 0.5;
+
+            // Lights
+            const ambient = new THREE.AmbientLight(0x404060, 0.6);
+            scene.add(ambient);
+            const point1 = new THREE.PointLight(0x667eea, 0.8, 100);
+            point1.position.set(20, 20, 20);
+            scene.add(point1);
+            const point2 = new THREE.PointLight(0xe74c3c, 0.4, 80);
+            point2.position.set(-20, -10, -15);
+            scene.add(point2);
+
+            // Groups
+            particleGroup = new THREE.Group();
+            connectionGroup = new THREE.Group();
+            spinGroup = new THREE.Group();
+            scene.add(particleGroup);
+            scene.add(connectionGroup);
+            scene.add(spinGroup);
+
+            // Sphere outline
+            const sphereGeo = new THREE.SphereGeometry(12, 32, 32);
+            const sphereMat = new THREE.MeshBasicMaterial({ color: 0x1a1a3a, wireframe: true, transparent: true, opacity: 0.08 });
+            sphereOutline = new THREE.Mesh(sphereGeo, sphereMat);
+            scene.add(sphereOutline);
+
+            // Axes
+            const axesLen = 14;
+            const axesMat = [
+                new THREE.LineBasicMaterial({ color: 0xff4444, transparent: true, opacity: 0.2 }),
+                new THREE.LineBasicMaterial({ color: 0x44ff44, transparent: true, opacity: 0.2 }),
+                new THREE.LineBasicMaterial({ color: 0x4444ff, transparent: true, opacity: 0.2 }),
+            ];
+            [[axesLen,0,0],[0,axesLen,0],[0,0,axesLen]].forEach((end, i) => {
+                const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(...end)]);
+                scene.add(new THREE.Line(geo, axesMat[i]));
+            });
+
+            // Raycaster
+            raycaster = new THREE.Raycaster();
+            raycaster.params.Points = { threshold: 0.5 };
+            mouse = new THREE.Vector2();
+
+            // Events
+            window.addEventListener('resize', onResize);
+            renderer.domElement.addEventListener('mousemove', onMouseMove);
+            renderer.domElement.addEventListener('click', onMouseClick);
+        }
+
+        function onResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function onMouseMove(e) {
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(particleMeshes);
+
+            const tooltip = document.getElementById('tooltip');
+            if (intersects.length > 0) {
+                const idx = particleMeshes.indexOf(intersects[0].object);
+                if (idx >= 0 && idx < filteredMemories.length) {
+                    hoveredIdx = idx;
+                    const mem = filteredMemories[idx];
+                    tooltip.style.display = 'block';
+                    tooltip.style.left = (e.clientX + 15) + 'px';
+                    tooltip.style.top = (e.clientY - 10) + 'px';
+                    const text = (mem.content || '').substring(0, 80);
+                    tooltip.innerHTML = `
+                        <div class="tt-title">${text || 'Memory Node'}${text.length >= 80 ? '...' : ''}</div>
+                        <div class="tt-row"><span class="tt-label">Cluster</span><span class="tt-val"><span class="cluster-badge cluster-${mem.cluster}">${mem.cluster}</span></span></div>
+                        <div class="tt-row"><span class="tt-label">Resonance</span><span class="tt-val">${mem.resonance.toFixed(3)}</span></div>
+                        <div class="tt-row"><span class="tt-label">Energy</span><span class="tt-val">${mem.energy.toFixed(3)}</span></div>
+                        <div class="tt-row"><span class="tt-label">Type</span><span class="tt-val">${mem.type}</span></div>
+                        <div class="tt-row"><span class="tt-label">XYZ</span><span class="tt-val">(${mem.x.toFixed(2)}, ${mem.y.toFixed(2)}, ${mem.z.toFixed(2)})</span></div>
+                    `;
+                    renderer.domElement.style.cursor = 'pointer';
+                } else {
+                    hoveredIdx = -1;
+                    tooltip.style.display = 'none';
+                    renderer.domElement.style.cursor = 'default';
+                }
+            } else {
+                hoveredIdx = -1;
+                tooltip.style.display = 'none';
+                renderer.domElement.style.cursor = 'default';
+            }
+        }
+
+        function onMouseClick(e) {
+            if (hoveredIdx >= 0 && hoveredIdx < filteredMemories.length) {
+                selectedIdx = hoveredIdx;
+                showMemoryDetail(filteredMemories[selectedIdx]);
+                highlightSelected();
+            }
+        }
+
+        function showMemoryDetail(mem) {
+            const panel = document.getElementById('info-panel');
+            panel.style.display = 'block';
+            const content = document.getElementById('info-content');
+            content.innerHTML = `
+                <div style="margin-bottom:8px;">
+                    <div style="color:#667eea;font-weight:700;font-size:1.1em;margin-bottom:4px;">Memory Node</div>
+                    <div style="color:#ccc;line-height:1.5;max-height:80px;overflow-y:auto;font-size:0.9em;">${(mem.content || 'No content').replace(/</g, '&lt;')}</div>
+                </div>
+                <h3>Position</h3>
+                <div class="stat-row"><span class="stat-label">X</span><span class="stat-value">${mem.x.toFixed(4)}</span></div>
+                <div class="stat-row"><span class="stat-label">Y</span><span class="stat-value">${mem.y.toFixed(4)}</span></div>
+                <div class="stat-row"><span class="stat-label">Z</span><span class="stat-value">${mem.z.toFixed(4)}</span></div>
+                <div class="stat-row"><span class="stat-label">r</span><span class="stat-value">${mem.r.toFixed(4)}</span></div>
+                <div class="stat-row"><span class="stat-label">φ</span><span class="stat-value">${mem.phi.toFixed(4)}</span></div>
+                <div class="stat-row"><span class="stat-label">θ</span><span class="stat-value">${mem.theta.toFixed(4)}</span></div>
+                <h3>Metrics</h3>
+                <div class="stat-row"><span class="stat-label">Resonance</span><span class="stat-value success">${mem.resonance.toFixed(4)}</span></div>
+                <div class="stat-row"><span class="stat-label">Energy</span><span class="stat-value warning">${mem.energy.toFixed(4)}</span></div>
+                <div class="stat-row"><span class="stat-label">Meaning</span><span class="stat-value">${mem.meaning.toFixed(4)}</span></div>
+                <div class="stat-row"><span class="stat-label">Intensity</span><span class="stat-value">${mem.intensity.toFixed(4)}</span></div>
+                <div class="stat-row"><span class="stat-label">Sentiment</span><span class="stat-value">${mem.sentiment.toFixed(4)}</span></div>
+                <h3>Spin Vector</h3>
+                <div class="stat-row"><span class="stat-label">Spin</span><span class="stat-value">(${mem.spinX.toFixed(3)}, ${mem.spinY.toFixed(3)}, ${mem.spinZ.toFixed(3)})</span></div>
+                <div class="stat-row"><span class="stat-label">Magnitude</span><span class="stat-value">${mem.spinMag.toFixed(4)}</span></div>
+                <h3>Identity</h3>
+                <div class="stat-row"><span class="stat-label">Cluster</span><span class="stat-value"><span class="cluster-badge cluster-${mem.cluster}">${mem.cluster}</span></span></div>
+                <div class="stat-row"><span class="stat-label">Type</span><span class="stat-value">${mem.type}</span></div>
+                ${mem.hash ? `<div class="stat-row"><span class="stat-label">Hash</span><span class="stat-value" style="font-size:0.7em;word-break:break-all;">${mem.hash.substring(0, 24)}...</span></div>` : ''}
+                ${mem.created ? `<div class="stat-row"><span class="stat-label">Created</span><span class="stat-value">${new Date(mem.created).toLocaleDateString()}</span></div>` : ''}
+            `;
+            updateToolbar();
+        }
+
+        function highlightSelected() {
+            particleMeshes.forEach((mesh, i) => {
+                if (i === selectedIdx) {
+                    mesh.material.emissive = new THREE.Color(0xffffff);
+                    mesh.material.emissiveIntensity = 0.5;
+                    mesh.scale.setScalar(2);
+                } else {
+                    mesh.material.emissive = new THREE.Color(0x000000);
+                    mesh.material.emissiveIntensity = 0;
+                    mesh.scale.setScalar(1);
+                }
+            });
+        }
+
+        // ─── Data Loading ───
+        async function loadMemories() {
+            document.getElementById('loading').style.display = 'flex';
+            document.getElementById('loading-text').textContent = 'Fetching memory anchors...';
+
+            try {
+                const res = await fetch(`${API}/api/v1/memory/hash-sphere/anchors?limit=2000`, {
+                    method: 'GET',
+                    credentials: 'include',
+                });
+
+                if (!res.ok) {
+                    if (res.status === 401 || res.status === 403) {
+                        document.getElementById('loading-text').textContent = 'Authentication required. Redirecting...';
+                        setTimeout(() => { window.top.location.href = '/login'; }, 1500);
+                        return;
+                    }
+                    throw new Error(`API error: ${res.status}`);
+                }
+
+                const data = await res.json();
+                const toNum = (v, fb) => { const n = Number(v); return Number.isFinite(n) ? n : fb; };
+                const clamp = (v) => Math.max(0, Math.min(1, toNum(v, 0)));
+                const normCluster = (name) => {
+                    const s = String(name || '').toLowerCase();
+                    if (s.includes('alpha')) return 'alpha';
+                    if (s.includes('gamma')) return 'gamma';
+                    return 'beta';
+                };
+
+                memories = (Array.isArray(data) ? data : []).map(m => ({
+                    id: m.id,
+                    content: m.context || m.anchor_text || '',
+                    type: m.anchor_type || m.source || 'chat',
+                    x: toNum(m.xyz_x, 0),
+                    y: toNum(m.xyz_y, 0),
+                    z: toNum(m.xyz_z, 0),
+                    r: toNum(m.sphere_r, 1),
+                    phi: toNum(m.sphere_phi, 0),
+                    theta: toNum(m.sphere_theta, 0),
+                    resonance: clamp(m.resonance_score ?? m.normalized_resonance ?? 0.5),
+                    energy: clamp(m.anchor_energy ?? 0),
+                    spinX: toNum(m.spin_x, 0),
+                    spinY: toNum(m.spin_y, 0),
+                    spinZ: toNum(m.spin_z, 0),
+                    spinMag: toNum(m.spin_magnitude, 0),
+                    meaning: clamp(m.meaning_score ?? 0),
+                    intensity: clamp(m.intensity_score ?? 0),
+                    sentiment: clamp(m.sentiment_score ?? 0.5),
+                    cluster: normCluster(m.cluster_name),
+                    hash: m.anchor_hash || '',
+                    created: m.created_at || null,
+                }));
+
+                document.getElementById('loading-text').textContent = `Rendering ${memories.length} memories...`;
+
+                filteredMemories = [...memories];
+                buildVisualization();
+                updateStats();
+                updateMemoryList();
+
+                // Fetch aggregate stats
+                try {
+                    const sRes = await fetch(`${API}/api/v1/memory/rag/stats`, { credentials: 'include' });
+                    if (sRes.ok) {
+                        const stats = await sRes.json();
+                        const total = Number(stats.total_memories);
+                        if (Number.isFinite(total)) document.getElementById('s-total').textContent = total.toLocaleString();
+                    }
+                } catch (e) {}
+
+            } catch (err) {
+                console.error('Load error:', err);
+                document.getElementById('loading-text').textContent = 'Error: ' + err.message;
+                setTimeout(() => { document.getElementById('loading').style.display = 'none'; }, 3000);
+                return;
+            }
+
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        // ─── Build Visualization ───
+        function buildVisualization() {
+            // Clear old
+            while (particleGroup.children.length) particleGroup.remove(particleGroup.children[0]);
+            while (connectionGroup.children.length) connectionGroup.remove(connectionGroup.children[0]);
+            while (spinGroup.children.length) spinGroup.remove(spinGroup.children[0]);
+            particleMeshes = [];
+            connectionLines = [];
+            spinArrows = [];
+
+            const scaleFactor = 10;
+
+            filteredMemories.forEach((mem, i) => {
+                const size = getSize(mem);
+                const color = getColor(mem);
+
+                const geo = new THREE.SphereGeometry(size * 0.12, 12, 12);
+                const mat = new THREE.MeshPhongMaterial({
+                    color: color,
+                    transparent: true,
+                    opacity: 0.7 + mem.resonance * 0.3,
+                    shininess: 60,
+                });
+                const mesh = new THREE.Mesh(geo, mat);
+
+                let px, py, pz;
+                if (viewMode === 'sphere') {
+                    px = mem.x * scaleFactor;
+                    py = mem.y * scaleFactor;
+                    pz = mem.z * scaleFactor;
+                } else if (viewMode === 'cluster') {
+                    const cOffset = { alpha: -8, beta: 0, gamma: 8 };
+                    px = (cOffset[mem.cluster] || 0) + mem.x * 4;
+                    py = mem.y * 6;
+                    pz = mem.z * 4;
+                } else { // timeline
+                    px = i * 0.05 - filteredMemories.length * 0.025;
+                    py = mem.resonance * 8;
+                    pz = mem.energy * 5;
+                }
+
+                mesh.position.set(px, py, pz);
+                mesh.userData = { index: i };
+                particleGroup.add(mesh);
+                particleMeshes.push(mesh);
+
+                // Glow for high resonance
+                if (mem.resonance > 0.7) {
+                    const glowGeo = new THREE.SphereGeometry(size * 0.25, 8, 8);
+                    const glowMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.15 });
+                    const glow = new THREE.Mesh(glowGeo, glowMat);
+                    glow.position.copy(mesh.position);
+                    particleGroup.add(glow);
+                }
+
+                // Spin arrows
+                if (showSpins && (mem.spinX || mem.spinY || mem.spinZ)) {
+                    const dir = new THREE.Vector3(mem.spinX, mem.spinY, mem.spinZ).normalize();
+                    const arrow = new THREE.ArrowHelper(dir, mesh.position, mem.spinMag * 3 + 0.5, 0x667eea, 0.2, 0.1);
+                    spinGroup.add(arrow);
+                    spinArrows.push(arrow);
+                }
+            });
+
+            // Connections
+            if (showConnections) buildConnections();
+        }
+
+        function buildConnections() {
+            while (connectionGroup.children.length) connectionGroup.remove(connectionGroup.children[0]);
+            connectionLines = [];
+
+            const maxConns = 5000;
+            let count = 0;
+            const lineMat = new THREE.LineBasicMaterial({ color: 0x667eea, transparent: true, opacity: 0.06 });
+
+            for (let i = 0; i < particleMeshes.length && count < maxConns; i++) {
+                for (let j = i + 1; j < particleMeshes.length && count < maxConns; j++) {
+                    const dist = particleMeshes[i].position.distanceTo(particleMeshes[j].position);
+                    if (dist < connectionDist) {
+                        const geo = new THREE.BufferGeometry().setFromPoints([
+                            particleMeshes[i].position,
+                            particleMeshes[j].position
+                        ]);
+                        const line = new THREE.Line(geo, lineMat);
+                        connectionGroup.add(line);
+                        connectionLines.push(line);
+                        count++;
+                    }
+                }
+            }
+            document.getElementById('s-connections').textContent = count.toLocaleString();
+        }
+
+        // ─── Stats ───
+        function updateStats() {
+            const mems = filteredMemories;
+            const n = mems.length;
+            if (!n) return;
+
+            document.getElementById('s-total').textContent = memories.length.toLocaleString();
+            document.getElementById('s-visible').textContent = n.toLocaleString();
+            document.getElementById('s-alpha').textContent = mems.filter(m => m.cluster === 'alpha').length;
+            document.getElementById('s-beta').textContent = mems.filter(m => m.cluster === 'beta').length;
+            document.getElementById('s-gamma').textContent = mems.filter(m => m.cluster === 'gamma').length;
+
+            const avgRes = mems.reduce((s, m) => s + m.resonance, 0) / n;
+            const maxRes = Math.max(...mems.map(m => m.resonance));
+            const minRes = Math.min(...mems.map(m => m.resonance));
+            document.getElementById('s-avg-res').textContent = avgRes.toFixed(3);
+            document.getElementById('s-max-res').textContent = maxRes.toFixed(3);
+            document.getElementById('s-min-res').textContent = minRes.toFixed(3);
+
+            const avgEnergy = mems.reduce((s, m) => s + m.energy, 0) / n;
+            const totalSpin = mems.reduce((s, m) => s + m.spinMag, 0);
+            document.getElementById('s-avg-energy').textContent = avgEnergy.toFixed(3);
+            document.getElementById('s-total-spin').textContent = totalSpin.toFixed(1);
+
+            const avgSent = mems.reduce((s, m) => s + m.sentiment, 0) / n;
+            document.getElementById('s-avg-sentiment').textContent = avgSent.toFixed(3);
+        }
+
+        function updateMemoryList() {
+            const container = document.getElementById('memory-list-items');
+            const display = filteredMemories.slice(0, 100);
+            container.innerHTML = display.map((m, i) => `
+                <div class="memory-item ${i === selectedIdx ? 'selected' : ''}" onclick="selectFromList(${i})">
+                    <div class="label">${(m.content || 'Memory ' + i).substring(0, 50)}${(m.content || '').length > 50 ? '...' : ''}</div>
+                    <div class="meta"><span class="cluster-badge cluster-${m.cluster}">${m.cluster}</span> res:${m.resonance.toFixed(2)} e:${m.energy.toFixed(2)}</div>
+                </div>
+            `).join('');
+        }
+
+        function filterMemoryList(query) {
+            const q = query.toLowerCase().trim();
+            if (!q) {
+                filteredMemories = memories.filter(m => m.resonance >= minResonanceFilter);
+            } else {
+                filteredMemories = memories.filter(m =>
+                    m.resonance >= minResonanceFilter &&
+                    ((m.content || '').toLowerCase().includes(q) || m.cluster.includes(q) || m.type.includes(q))
+                );
+            }
+            buildVisualization();
+            updateStats();
+            updateMemoryList();
+        }
+
+        function selectFromList(idx) {
+            if (idx >= 0 && idx < filteredMemories.length) {
+                selectedIdx = idx;
+                showMemoryDetail(filteredMemories[idx]);
+                highlightSelected();
+                // Focus camera
+                const pos = particleMeshes[idx]?.position;
+                if (pos) {
+                    controls.target.copy(pos);
+                    camera.position.set(pos.x + 5, pos.y + 3, pos.z + 5);
+                }
+            }
+        }
+
+        // ─── Controls ───
+        function setViewMode(mode) {
+            viewMode = mode;
+            document.querySelectorAll('[id^="mode-"]').forEach(b => b.classList.remove('active'));
+            document.getElementById('mode-' + mode)?.classList.add('active');
+            buildVisualization();
+        }
+
+        function setColorMode(mode) {
+            colorMode = mode;
+            document.querySelectorAll('[id^="color-"]').forEach(b => b.classList.remove('active'));
+            document.getElementById('color-' + mode)?.classList.add('active');
+            particleMeshes.forEach((mesh, i) => {
+                if (i < filteredMemories.length) {
+                    mesh.material.color.setHex(getColor(filteredMemories[i]));
+                }
+            });
+        }
+
+        function updateParticleSize(val) {
+            document.getElementById('size-val').textContent = val;
+            buildVisualization();
+        }
+
+        function updateConnections(val) {
+            connectionDist = parseFloat(val);
+            document.getElementById('conn-val').textContent = val;
+            buildConnections();
+        }
+
+        function filterByResonance(val) {
+            minResonanceFilter = val;
+            document.getElementById('res-val').textContent = val.toFixed(2);
+            filteredMemories = memories.filter(m => m.resonance >= val);
+            buildVisualization();
+            updateStats();
+            updateMemoryList();
+        }
+
+        function toggleSpin() { showSpins = !showSpins; buildVisualization(); }
+        function toggleConnections() { showConnections = !showConnections; buildVisualization(); }
+
+        function resetCamera() {
+            controls.target.set(0, 0, 0);
+            camera.position.set(15, 10, 20);
+            controls.update();
+        }
+
+        function exportView() {
+            renderer.render(scene, camera);
+            const link = document.createElement('a');
+            link.download = 'memory-sphere-' + new Date().toISOString().slice(0, 19) + '.png';
+            link.href = renderer.domElement.toDataURL('image/png');
+            link.click();
+        }
+
+        // ─── Panel Dragging ───
+        function startDrag(e, panelId) {
+            dragPanel = document.getElementById(panelId);
+            const rect = dragPanel.getBoundingClientRect();
+            dragOffset.x = e.clientX - rect.left;
+            dragOffset.y = e.clientY - rect.top;
+            document.addEventListener('mousemove', onDrag);
+            document.addEventListener('mouseup', stopDrag);
+            e.preventDefault();
+        }
+        function onDrag(e) {
+            if (!dragPanel) return;
+            dragPanel.style.left = (e.clientX - dragOffset.x) + 'px';
+            dragPanel.style.top = (e.clientY - dragOffset.y) + 'px';
+            dragPanel.style.right = 'auto';
+            dragPanel.style.bottom = 'auto';
+        }
+        function stopDrag() { dragPanel = null; document.removeEventListener('mousemove', onDrag); document.removeEventListener('mouseup', stopDrag); }
+        function minimizePanel(id) { document.getElementById(id).classList.toggle('minimized'); }
+        function hidePanel(id) { document.getElementById(id).style.display = 'none'; updateToolbar(); }
+        function togglePanel(id) {
+            const el = document.getElementById(id);
+            el.style.display = el.style.display === 'none' ? 'block' : (el.style.display === '' ? 'block' : 'none');
+            updateToolbar();
+        }
+        function updateToolbar() {
+            document.querySelectorAll('.toolbar-btn').forEach(btn => {
+                const target = btn.getAttribute('onclick')?.match(/'([^']+)'/)?.[1];
+                if (target) {
+                    const el = document.getElementById(target);
+                    btn.classList.toggle('active', el && el.style.display !== 'none');
+                }
+            });
+        }
+
+        // ─── Animation Loop ───
+        function animate() {
+            animationId = requestAnimationFrame(animate);
+
+            // Auto-rotate
+            controls.autoRotateSpeed = rotationSpeed;
+            controls.update();
+
+            // Hover highlight
+            particleMeshes.forEach((mesh, i) => {
+                if (i === hoveredIdx && i !== selectedIdx) {
+                    mesh.material.emissive = new THREE.Color(0x444444);
+                    mesh.material.emissiveIntensity = 0.3;
+                } else if (i !== selectedIdx) {
+                    mesh.material.emissive = new THREE.Color(0x000000);
+                    mesh.material.emissiveIntensity = 0;
+                }
+            });
+
+            renderer.render(scene, camera);
+        }
+
+        // ─── Init ───
+        initScene();
+        animate();
+        loadMemories();
+    </script>
+</body>
+</html>

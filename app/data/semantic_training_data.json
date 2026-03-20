@@ -1,0 +1,352 @@
+[
+  {
+    "text": "Let's find investors for my startup",
+    "cluster": "GAMMA",
+    "temperature": 0.7,
+    "polarity": 0.8,
+    "entities": ["startup"]
+  },
+  {
+    "text": "We need to hire more developers for the team",
+    "cluster": "ALPHA",
+    "temperature": 0.6,
+    "polarity": 0.7,
+    "entities": ["developers", "team"]
+  },
+  {
+    "text": "The server is down and users are complaining",
+    "cluster": "BETA",
+    "temperature": 0.9,
+    "polarity": 0.2,
+    "entities": ["server", "users"]
+  },
+  {
+    "text": "I'm excited about the new product launch",
+    "cluster": "GAMMA",
+    "temperature": 0.8,
+    "polarity": 0.9,
+    "entities": ["product"]
+  },
+  {
+    "text": "The database needs optimization for better performance",
+    "cluster": "BETA",
+    "temperature": 0.5,
+    "polarity": 0.5,
+    "entities": ["database"]
+  },
+  {
+    "text": "Our customers love the new feature",
+    "cluster": "ALPHA",
+    "temperature": 0.7,
+    "polarity": 0.95,
+    "entities": ["customers", "feature"]
+  },
+  {
+    "text": "There's a critical bug in the payment system",
+    "cluster": "BETA",
+    "temperature": 0.95,
+    "polarity": 0.1,
+    "entities": ["bug", "payment system"]
+  },
+  {
+    "text": "Let's schedule a meeting to discuss the roadmap",
+    "cluster": "DELTA",
+    "temperature": 0.5,
+    "polarity": 0.6,
+    "entities": ["meeting", "roadmap"]
+  },
+  {
+    "text": "The API response time is too slow",
+    "cluster": "BETA",
+    "temperature": 0.7,
+    "polarity": 0.3,
+    "entities": ["API"]
+  },
+  {
+    "text": "We achieved our quarterly revenue goals",
+    "cluster": "GAMMA",
+    "temperature": 0.6,
+    "polarity": 0.95,
+    "entities": ["revenue", "goals"]
+  },
+  {
+    "text": "The marketing campaign was very successful",
+    "cluster": "GAMMA",
+    "temperature": 0.6,
+    "polarity": 0.9,
+    "entities": ["marketing campaign"]
+  },
+  {
+    "text": "Users are reporting login issues",
+    "cluster": "ALPHA",
+    "temperature": 0.8,
+    "polarity": 0.2,
+    "entities": ["users", "login"]
+  },
+  {
+    "text": "We need to improve the onboarding experience",
+    "cluster": "GAMMA",
+    "temperature": 0.5,
+    "polarity": 0.5,
+    "entities": ["onboarding"]
+  },
+  {
+    "text": "The new design looks amazing",
+    "cluster": "EPSILON",
+    "temperature": 0.6,
+    "polarity": 0.9,
+    "entities": ["design"]
+  },
+  {
+    "text": "Deploy the changes to production tonight",
+    "cluster": "DELTA",
+    "temperature": 0.8,
+    "polarity": 0.5,
+    "entities": ["production"]
+  },
+  {
+    "text": "The competitor just launched a similar product",
+    "cluster": "ALPHA",
+    "temperature": 0.7,
+    "polarity": 0.3,
+    "entities": ["competitor", "product"]
+  },
+  {
+    "text": "Our team morale is really high right now",
+    "cluster": "ALPHA",
+    "temperature": 0.5,
+    "polarity": 0.9,
+    "entities": ["team"]
+  },
+  {
+    "text": "The code review found several issues",
+    "cluster": "BETA",
+    "temperature": 0.5,
+    "polarity": 0.3,
+    "entities": ["code review"]
+  },
+  {
+    "text": "Let's brainstorm ideas for the next sprint",
+    "cluster": "DELTA",
+    "temperature": 0.6,
+    "polarity": 0.7,
+    "entities": ["sprint"]
+  },
+  {
+    "text": "The customer feedback has been overwhelmingly positive",
+    "cluster": "ALPHA",
+    "temperature": 0.5,
+    "polarity": 0.95,
+    "entities": ["customer", "feedback"]
+  },
+  {
+    "text": "We're running low on cloud credits",
+    "cluster": "BETA",
+    "temperature": 0.7,
+    "polarity": 0.2,
+    "entities": ["cloud"]
+  },
+  {
+    "text": "The integration with Stripe is complete",
+    "cluster": "BETA",
+    "temperature": 0.4,
+    "polarity": 0.8,
+    "entities": ["Stripe", "integration"]
+  },
+  {
+    "text": "I'm worried about the project deadline",
+    "cluster": "GAMMA",
+    "temperature": 0.7,
+    "polarity": 0.2,
+    "entities": ["project", "deadline"]
+  },
+  {
+    "text": "The mobile app needs a complete redesign",
+    "cluster": "BETA",
+    "temperature": 0.6,
+    "polarity": 0.4,
+    "entities": ["mobile app"]
+  },
+  {
+    "text": "Our partnership with Google is going well",
+    "cluster": "ALPHA",
+    "temperature": 0.5,
+    "polarity": 0.85,
+    "entities": ["Google", "partnership"]
+  },
+  {
+    "text": "The security audit revealed vulnerabilities",
+    "cluster": "GAMMA",
+    "temperature": 0.8,
+    "polarity": 0.15,
+    "entities": ["security audit", "vulnerabilities"]
+  },
+  {
+    "text": "Let's celebrate the successful launch",
+    "cluster": "DELTA",
+    "temperature": 0.8,
+    "polarity": 0.95,
+    "entities": ["launch"]
+  },
+  {
+    "text": "The documentation needs to be updated",
+    "cluster": "BETA",
+    "temperature": 0.4,
+    "polarity": 0.5,
+    "entities": ["documentation"]
+  },
+  {
+    "text": "We received a great review from TechCrunch",
+    "cluster": "GAMMA",
+    "temperature": 0.6,
+    "polarity": 0.9,
+    "entities": ["TechCrunch", "review"]
+  },
+  {
+    "text": "The user retention rate has improved significantly",
+    "cluster": "GAMMA",
+    "temperature": 0.5,
+    "polarity": 0.85,
+    "entities": ["user retention"]
+  },
+  {
+    "text": "We need to fix the memory leak in the backend",
+    "cluster": "BETA",
+    "temperature": 0.7,
+    "polarity": 0.3,
+    "entities": ["memory leak", "backend"]
+  },
+  {
+    "text": "The investor meeting went really well",
+    "cluster": "ALPHA",
+    "temperature": 0.6,
+    "polarity": 0.9,
+    "entities": ["investor", "meeting"]
+  },
+  {
+    "text": "Our conversion rate is below industry average",
+    "cluster": "GAMMA",
+    "temperature": 0.6,
+    "polarity": 0.25,
+    "entities": ["conversion rate"]
+  },
+  {
+    "text": "The new hire is doing an excellent job",
+    "cluster": "ALPHA",
+    "temperature": 0.5,
+    "polarity": 0.9,
+    "entities": ["new hire"]
+  },
+  {
+    "text": "We should automate the deployment process",
+    "cluster": "DELTA",
+    "temperature": 0.5,
+    "polarity": 0.6,
+    "entities": ["deployment"]
+  },
+  {
+    "text": "The website traffic has doubled this month",
+    "cluster": "GAMMA",
+    "temperature": 0.5,
+    "polarity": 0.85,
+    "entities": ["website traffic"]
+  },
+  {
+    "text": "There are too many open support tickets",
+    "cluster": "GAMMA",
+    "temperature": 0.7,
+    "polarity": 0.25,
+    "entities": ["support tickets"]
+  },
+  {
+    "text": "The AI model accuracy has reached 95%",
+    "cluster": "BETA",
+    "temperature": 0.5,
+    "polarity": 0.9,
+    "entities": ["AI model"]
+  },
+  {
+    "text": "We're expanding to the European market",
+    "cluster": "GAMMA",
+    "temperature": 0.6,
+    "polarity": 0.8,
+    "entities": ["European market"]
+  },
+  {
+    "text": "The load balancer is misconfigured",
+    "cluster": "BETA",
+    "temperature": 0.7,
+    "polarity": 0.2,
+    "entities": ["load balancer"]
+  },
+  {
+    "text": "Customer support response time is excellent",
+    "cluster": "ALPHA",
+    "temperature": 0.4,
+    "polarity": 0.9,
+    "entities": ["customer support"]
+  },
+  {
+    "text": "We need more test coverage for the codebase",
+    "cluster": "BETA",
+    "temperature": 0.5,
+    "polarity": 0.4,
+    "entities": ["test coverage", "codebase"]
+  },
+  {
+    "text": "The board approved the new budget",
+    "cluster": "ALPHA",
+    "temperature": 0.4,
+    "polarity": 0.8,
+    "entities": ["board", "budget"]
+  },
+  {
+    "text": "I'm feeling overwhelmed with the workload",
+    "cluster": "GAMMA",
+    "temperature": 0.7,
+    "polarity": 0.15,
+    "entities": ["workload"]
+  },
+  {
+    "text": "The microservices architecture is working great",
+    "cluster": "BETA",
+    "temperature": 0.4,
+    "polarity": 0.85,
+    "entities": ["microservices"]
+  },
+  {
+    "text": "We closed our Series A funding round",
+    "cluster": "GAMMA",
+    "temperature": 0.7,
+    "polarity": 0.95,
+    "entities": ["Series A", "funding"]
+  },
+  {
+    "text": "The SSL certificate is about to expire",
+    "cluster": "BETA",
+    "temperature": 0.8,
+    "polarity": 0.3,
+    "entities": ["SSL certificate"]
+  },
+  {
+    "text": "Our NPS score has improved to 72",
+    "cluster": "GAMMA",
+    "temperature": 0.5,
+    "polarity": 0.85,
+    "entities": ["NPS score"]
+  },
+  {
+    "text": "The feature request from enterprise clients",
+    "cluster": "ALPHA",
+    "temperature": 0.5,
+    "polarity": 0.6,
+    "entities": ["enterprise clients", "feature request"]
+  },
+  {
+    "text": "We need to refactor the legacy code",
+    "cluster": "DELTA",
+    "temperature": 0.5,
+    "polarity": 0.4,
+    "entities": ["legacy code"]
+  }
+]

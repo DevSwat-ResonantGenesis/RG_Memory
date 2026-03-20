@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hash Sphere Memory Visualizer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #262321;
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+
+        #canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(50, 49, 46, 0.92);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 20px;
+            min-width: 300px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        #info {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(50, 49, 46, 0.92);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            padding: 15px;
+            max-width: 400px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        h2 {
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 15px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #a0a0a0;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.6);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.15);
+        }
+
+        button {
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 255, 255, 0.06);
+        }
+
+        .cluster-legend {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .cluster-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .cluster-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            box-shadow: 0 0 8px currentColor;
+        }
+
+        .alpha { background: rgba(255, 255, 255, 0.5); }
+        .beta { background: rgba(255, 255, 255, 0.3); }
+        .gamma { background: rgba(255, 255, 255, 0.15); }
+
+        #stats {
+            font-size: 12px;
+            line-height: 1.6;
+            color: #a0a0a0;
+        }
+
+        #stats strong {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+
+        .spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(50, 49, 46, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            pointer-events: none;
+            display: none;
+            max-width: 300px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+        }
+
+        .tooltip.visible {
+            display: block;
+        }
+
+        .tooltip-title {
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .tooltip-content {
+            font-size: 12px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <canvas id="canvas"></canvas>
+        
+        <div id="controls">
+            <h2>🌌 Hash Sphere Controls</h2>
+            
+            <div class="control-group">
+                <label>Rotation Speed</label>
+                <input type="range" id="rotationSpeed" min="0" max="2" step="0.1" value="0.5">
+            </div>
+            
+            <div class="control-group">
+                <label>Particle Size</label>
+                <input type="range" id="particleSize" min="1" max="10" step="0.5" value="3">
+            </div>
+            
+            <div class="control-group">
+                <label>Connection Distance</label>
+                <input type="range" id="connectionDistance" min="0" max="200" step="10" value="100">
+            </div>
+            
+            <button id="loadMemories">Load Memories</button>
+            <button id="toggleClusters">Toggle Clusters</button>
+            <button id="resetView">Reset View</button>
+            
+            <div class="cluster-legend">
+                <div class="cluster-item">
+                    <div class="cluster-color alpha"></div>
+                    <span>Alpha</span>
+                </div>
+                <div class="cluster-item">
+                    <div class="cluster-color beta"></div>
+                    <span>Beta</span>
+                </div>
+                <div class="cluster-item">
+                    <div class="cluster-color gamma"></div>
+                    <span>Gamma</span>
+                </div>
+            </div>
+        </div>
+        
+        <div id="info">
+            <h2>📊 Hash Sphere Statistics</h2>
+            <div id="stats">
+                <div><strong>Total Memories:</strong> <span id="totalMemories">0</span></div>
+                <div><strong>Alpha Cluster:</strong> <span id="alphaCount">0</span></div>
+                <div><strong>Beta Cluster:</strong> <span id="betaCount">0</span></div>
+                <div><strong>Gamma Cluster:</strong> <span id="gammaCount">0</span></div>
+                <div><strong>Avg Resonance:</strong> <span id="avgResonance">0.00</span></div>
+                <div><strong>Avg Energy:</strong> <span id="avgEnergy">0.00</span></div>
+                <div><strong>Avg Sentiment:</strong> <span id="avgSentiment">0.50</span></div>
+            </div>
+            <h3 style="margin-top: 15px; color: rgba(255,255,255,0.6); font-size: 14px;">🌐 Coordinate System</h3>
+            <div style="font-size: 11px; color: #888; margin-top: 5px;">
+                <div>XYZ: Cartesian (3D semantic space)</div>
+                <div>r,φ,θ: Hyperspherical (radius, lat, lon)</div>
+                <div>Spin: Semantic rotation vector</div>
+                <div>Energy: Anchor attraction strength</div>
+            </div>
+        </div>
+        
+        <div class="tooltip" id="tooltip">
+            <div class="tooltip-title" id="tooltipTitle"></div>
+            <div class="tooltip-content" id="tooltipContent"></div>
+        </div>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <div>Loading Hash Sphere...</div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Three.js Scene Setup
+        let scene, camera, renderer, particles, connections;
+        let memories = [];
+        let rotationSpeed = 0.5;
+        let particleSize = 3;
+        let connectionDistance = 100;
+        let showClusters = true;
+
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x262321, 0.0015);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(
+                75,
+                window.innerWidth / window.innerHeight,
+                0.1,
+                2000
+            );
+            camera.position.z = 500;
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({
+                canvas: document.getElementById('canvas'),
+                antialias: true,
+                alpha: true
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+
+            // Ambient Light
+            const ambientLight = new THREE.AmbientLight(0x404040, 2);
+            scene.add(ambientLight);
+
+            // Point Lights
+            const light1 = new THREE.PointLight(0xffffff, 0.8, 1000);
+            light1.position.set(200, 200, 200);
+            scene.add(light1);
+
+            const light2 = new THREE.PointLight(0xffffff, 0.4, 1000);
+            light2.position.set(-200, -200, -200);
+            scene.add(light2);
+
+            // Create initial particle system
+            createParticleSystem();
+
+            // Event Listeners
+            window.addEventListener('resize', onWindowResize);
+            document.getElementById('rotationSpeed').addEventListener('input', (e) => {
+                rotationSpeed = parseFloat(e.target.value);
+            });
+            document.getElementById('particleSize').addEventListener('input', (e) => {
+                particleSize = parseFloat(e.target.value);
+                updateParticleSize();
+            });
+            document.getElementById('connectionDistance').addEventListener('input', (e) => {
+                connectionDistance = parseFloat(e.target.value);
+            });
+            document.getElementById('loadMemories').addEventListener('click', loadMemories);
+            document.getElementById('toggleClusters').addEventListener('click', toggleClusters);
+            document.getElementById('resetView').addEventListener('click', resetView);
+
+            // Mouse interaction
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+            
+            renderer.domElement.addEventListener('mousemove', (event) => {
+                mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+                
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObject(particles);
+                
+                if (intersects.length > 0) {
+                    const index = intersects[0].index;
+                    if (memories[index]) {
+                        showTooltip(event.clientX, event.clientY, memories[index]);
+                    }
+                } else {
+                    hideTooltip();
+                }
+            });
+
+            // Hide loading
+            document.getElementById('loading').style.display = 'none';
+
+            // Start animation
+            animate();
+        }
+
+        function createParticleSystem() {
+            // Remove old particles
+            if (particles) {
+                scene.remove(particles);
+            }
+            if (connections) {
+                scene.remove(connections);
+            }
+
+            const particleCount = memories.length || 1000;
+            const geometry = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            const colors = new Float32Array(particleCount * 3);
+
+            for (let i = 0; i < particleCount; i++) {
+                if (memories[i]) {
+                    // Use actual memory coordinates
+                    positions[i * 3] = memories[i].x * 500;
+                    positions[i * 3 + 1] = memories[i].y * 500;
+                    positions[i * 3 + 2] = memories[i].z * 500;
+
+                    // Color by cluster
+                    const color = getClusterColor(memories[i].cluster);
+                    colors[i * 3] = color.r;
+                    colors[i * 3 + 1] = color.g;
+                    colors[i * 3 + 2] = color.b;
+                } else {
+                    // Random distribution for demo
+                    const radius = 300;
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.acos(2 * Math.random() - 1);
+                    
+                    positions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+                    positions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+                    positions[i * 3 + 2] = radius * Math.cos(phi);
+
+                    // Random colors
+                    colors[i * 3] = Math.random();
+                    colors[i * 3 + 1] = Math.random();
+                    colors[i * 3 + 2] = Math.random();
+                }
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: particleSize,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.8,
+                sizeAttenuation: true
+            });
+
+            particles = new THREE.Points(geometry, material);
+            scene.add(particles);
+
+            // Create connections
+            createConnections();
+        }
+
+        function createConnections() {
+            if (!showClusters) return;
+
+            const geometry = new THREE.BufferGeometry();
+            const positions = [];
+            const colors = [];
+
+            const particlePositions = particles.geometry.attributes.position.array;
+            const particleColors = particles.geometry.attributes.color.array;
+
+            for (let i = 0; i < particlePositions.length; i += 3) {
+                for (let j = i + 3; j < particlePositions.length; j += 3) {
+                    const dx = particlePositions[i] - particlePositions[j];
+                    const dy = particlePositions[i + 1] - particlePositions[j + 1];
+                    const dz = particlePositions[i + 2] - particlePositions[j + 2];
+                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                    if (distance < connectionDistance) {
+                        positions.push(
+                            particlePositions[i], particlePositions[i + 1], particlePositions[i + 2],
+                            particlePositions[j], particlePositions[j + 1], particlePositions[j + 2]
+                        );
+
+                        const alpha = 1 - (distance / connectionDistance);
+                        colors.push(
+                            particleColors[i] * alpha, particleColors[i + 1] * alpha, particleColors[i + 2] * alpha,
+                            particleColors[j] * alpha, particleColors[j + 1] * alpha, particleColors[j + 2] * alpha
+                        );
+                    }
+                }
+            }
+
+            geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+            const material = new THREE.LineBasicMaterial({
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.3
+            });
+
+            connections = new THREE.LineSegments(geometry, material);
+            scene.add(connections);
+        }
+
+        function getClusterColor(cluster) {
+            switch(cluster) {
+                case 'alpha':
+                    return { r: 0.85, g: 0.82, b: 0.78 };
+                case 'beta':
+                    return { r: 0.6, g: 0.58, b: 0.55 };
+                case 'gamma':
+                    return { r: 0.4, g: 0.38, b: 0.36 };
+                default:
+                    return { r: 0.5, g: 0.48, b: 0.45 };
+            }
+        }
+
+        function updateParticleSize() {
+            if (particles) {
+                particles.material.size = particleSize;
+            }
+        }
+
+        // Determine API base URL based on whether we're in an iframe
+        const getApiBaseUrl = () => {
+            try {
+                // If we're in an iframe, use the parent's origin
+                if (window.parent && window.parent !== window) {
+                    return window.parent.location.origin;
+                }
+            } catch (e) {
+                // Cross-origin iframe, fall back to current origin
+            }
+            return window.location.origin;
+        };
+
+        const apiBaseUrl = getApiBaseUrl();
+
+        async function loadMemories() {
+            try {
+                const response = await fetch(`${apiBaseUrl}/api/v1/memory/hash-sphere/anchors?limit=1000`, {
+                    method: 'GET',
+                    credentials: 'include',
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401 || response.status === 403) {
+                        window.location.href = '/login';
+                        return;
+                    }
+                    const errText = await response.text();
+                    console.error('Memory retrieve failed:', response.status, errText);
+                    return;
+                }
+
+                const data = await response.json();
+                const clamp01 = (v) => {
+                    if (v === null || v === undefined) return 0;
+                    const n = Number(v);
+                    if (!Number.isFinite(n)) return 0;
+                    return Math.max(0, Math.min(1, n));
+                };
+                const toNum = (v, fallback) => {
+                    const n = Number(v);
+                    return Number.isFinite(n) ? n : fallback;
+                };
+                const normalizeCluster = (name) => {
+                    const s = String(name || '').toLowerCase();
+                    if (s.includes('alpha')) return 'alpha';
+                    if (s.includes('beta')) return 'beta';
+                    if (s.includes('gamma')) return 'gamma';
+                    return 'beta';
+                };
+
+                memories = (Array.isArray(data) ? data : []).map(mem => {
+                    const x = toNum(mem.xyz_x ?? (mem.xyz?.[0]), null);
+                    const y = toNum(mem.xyz_y ?? (mem.xyz?.[1]), null);
+                    const z = toNum(mem.xyz_z ?? (mem.xyz?.[2]), null);
+
+                    return {
+                        id: mem.id,
+                        content: mem.context || mem.anchor_text || '',
+                        source: mem.anchor_type || mem.source || 'chat',
+                        // Cartesian coordinates (fall back to 0 so we do not inject randomness)
+                        x: x ?? 0,
+                        y: y ?? 0,
+                        z: z ?? 0,
+                        // Hyperspherical coordinates
+                        r: toNum(mem.sphere_r, 1.0),
+                        phi: toNum(mem.sphere_phi, 0),
+                        theta: toNum(mem.sphere_theta, 0),
+                        // Resonance
+                        resonance: clamp01(mem.resonance_score ?? 0.5),
+                        normalizedResonance: clamp01(mem.normalized_resonance ?? mem.resonance_score ?? 0.5),
+                        // Anchor energy
+                        energy: clamp01(mem.anchor_energy ?? 0),
+                        // Spin vector
+                        spinX: toNum(mem.spin_x, 0),
+                        spinY: toNum(mem.spin_y, 0),
+                        spinZ: toNum(mem.spin_z, 0),
+                        spinMagnitude: toNum(mem.spin_magnitude, 0),
+                        // Semantic components
+                        meaning: clamp01(mem.meaning_score ?? 0),
+                        intensity: clamp01(mem.intensity_score ?? 0),
+                        sentiment: clamp01(mem.sentiment_score ?? 0.5),
+                        // Cluster
+                        cluster: normalizeCluster(mem.cluster_name),
+                        // Hashes
+                        hash: mem.anchor_hash || mem.hash,
+                        universeId: mem.universe_id,
+                    };
+                });
+
+                createParticleSystem();
+                updateStats();
+
+                // Best-effort: refresh aggregate stats (optional)
+                try {
+                    const statsRes = await fetch(`${apiBaseUrl}/api/v1/memory/rag/stats`, {
+                        method: 'GET',
+                        credentials: 'include',
+                    });
+                    if (statsRes.ok) {
+                        const stats = await statsRes.json();
+                        const total = Number(stats.total_memories);
+                        if (Number.isFinite(total)) {
+                            document.getElementById('totalMemories').textContent = String(total);
+                        }
+                    }
+                } catch (e) {
+                    // ignore
+                }
+            } catch (error) {
+                console.error('Failed to load memories:', error);
+            }
+        }
+
+        function toggleClusters() {
+            showClusters = !showClusters;
+            if (connections) {
+                scene.remove(connections);
+            }
+            if (showClusters) {
+                createConnections();
+            }
+        }
+
+        function resetView() {
+            camera.position.set(0, 0, 500);
+            camera.lookAt(0, 0, 0);
+        }
+
+        function updateStats() {
+            document.getElementById('totalMemories').textContent = memories.length;
+            
+            const alphaCount = memories.filter(m => m.cluster === 'alpha').length;
+            const betaCount = memories.filter(m => m.cluster === 'beta').length;
+            const gammaCount = memories.filter(m => m.cluster === 'gamma').length;
+            
+            document.getElementById('alphaCount').textContent = alphaCount;
+            document.getElementById('betaCount').textContent = betaCount;
+            document.getElementById('gammaCount').textContent = gammaCount;
+            
+            const avgRes = memories.reduce((sum, m) => sum + (m.normalizedResonance || m.resonance), 0) / memories.length || 0;
+            document.getElementById('avgResonance').textContent = avgRes.toFixed(2);
+            
+            const avgEnergy = memories.reduce((sum, m) => sum + (m.energy || 0), 0) / memories.length || 0;
+            document.getElementById('avgEnergy').textContent = avgEnergy.toFixed(2);
+            
+            const avgSentiment = memories.reduce((sum, m) => sum + (m.sentiment || 0.5), 0) / memories.length || 0.5;
+            document.getElementById('avgSentiment').textContent = avgSentiment.toFixed(2);
+        }
+
+        function showTooltip(x, y, memory) {
+            const tooltip = document.getElementById('tooltip');
+            const title = document.getElementById('tooltipTitle');
+            const content = document.getElementById('tooltipContent');
+            
+            // Convert radians to degrees for display
+            const phiDeg = (memory.phi * 180 / Math.PI).toFixed(1);
+            const thetaDeg = (memory.theta * 180 / Math.PI).toFixed(1);
+            
+            title.textContent = `Memory ${memory.id.substring(0, 8)}... [${memory.source || 'unknown'}]`;
+            content.innerHTML = `
+                <div style="margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                    <strong>🌐 Hash Sphere Coordinates</strong>
+                </div>
+                <div><strong>XYZ:</strong> (${memory.x.toFixed(3)}, ${memory.y.toFixed(3)}, ${memory.z.toFixed(3)})</div>
+                <div><strong>Hyperspherical:</strong> r=${memory.r.toFixed(2)}, φ=${phiDeg}°, θ=${thetaDeg}°</div>
+                <div><strong>Resonance:</strong> ${(memory.normalizedResonance || memory.resonance).toFixed(3)}</div>
+                <div><strong>Energy:</strong> ${(memory.energy || 0).toFixed(3)}</div>
+                <div><strong>Spin:</strong> (${(memory.spinX || 0).toFixed(2)}, ${(memory.spinY || 0).toFixed(2)}, ${(memory.spinZ || 0).toFixed(2)}) |${(memory.spinMagnitude || 0).toFixed(2)}|</div>
+                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1);">
+                    <strong>📊 Semantic</strong>
+                </div>
+                <div><strong>Meaning:</strong> ${(memory.meaning || 0).toFixed(2)} | <strong>Intensity:</strong> ${(memory.intensity || 0).toFixed(2)} | <strong>Sentiment:</strong> ${(memory.sentiment || 0.5).toFixed(2)}</div>
+                <div><strong>Cluster:</strong> ${memory.cluster}</div>
+                <div style="margin-top: 8px; font-size: 11px; color: #888;">${(memory.content || '').substring(0, 80)}...</div>
+            `;
+            
+            tooltip.style.left = x + 15 + 'px';
+            tooltip.style.top = y + 15 + 'px';
+            tooltip.classList.add('visible');
+        }
+
+        function hideTooltip() {
+            document.getElementById('tooltip').classList.remove('visible');
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            if (particles) {
+                particles.rotation.y += rotationSpeed * 0.001;
+                particles.rotation.x += rotationSpeed * 0.0005;
+            }
+
+            if (connections) {
+                connections.rotation.y += rotationSpeed * 0.001;
+                connections.rotation.x += rotationSpeed * 0.0005;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Initialize
+        init();
+    </script>
+</body>
+</html>
