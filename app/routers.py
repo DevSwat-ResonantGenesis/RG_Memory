@@ -1184,22 +1184,30 @@ async def extract_hash_sphere_memories(
     # Prepare memories for hybrid ranking
     memories_list = list(all_memories.values())
     
+    # BM25 scoring: simple keyword overlap for each candidate memory
+    # Normalized to [0,1] by dividing by max score
+    import re as _re
+    query_tokens = set(_re.findall(r'\w+', request.query.lower()))
+    bm25_raw_scores = {}
+    for mem in memories_list:
+        content_tokens = set(_re.findall(r'\w+', (mem.get("content") or "").lower()[:500]))
+        overlap = len(query_tokens & content_tokens)
+        bm25_raw_scores[mem["id"]] = overlap
+    max_bm25 = max(bm25_raw_scores.values()) if bm25_raw_scores else 1
+    max_bm25 = max(max_bm25, 1)  # avoid division by zero
+    
     for mem in memories_list:
         # Ensure all score fields exist
         if "rag_score" not in mem:
             mem["rag_score"] = 0.0
         if "resonance_score" not in mem:
             mem["resonance_score"] = 0.0
-        if "proximity_score" not in mem:
-            # Calculate if we have XYZ
-            if mem.get("xyz") and all(x is not None for x in mem["xyz"]):
-                mem["proximity_score"] = ResonanceHasher.calculate_proximity_score(query_xyz, tuple(mem["xyz"]))
-            else:
-                mem["proximity_score"] = 0.0
-        if "anchor_score" not in mem:
-            mem["anchor_score"] = 0.0
+        
+        # BM25 keyword score (normalized 0-1)
+        mem["bm25_score"] = bm25_raw_scores.get(mem["id"], 0) / max_bm25
+        
+        # Recency score
         if "recency_score" not in mem:
-            # Calculate recency
             if mem.get("timestamp"):
                 try:
                     ts = datetime.fromisoformat(mem["timestamp"].replace('Z', '+00:00'))
@@ -1209,29 +1217,6 @@ async def extract_hash_sphere_memories(
                     mem["recency_score"] = 0.5
             else:
                 mem["recency_score"] = 0.5
-        
-        # Calculate Layer 5: Resonance Function score
-        if mem.get("xyz") and all(x is not None for x in mem["xyz"]):
-            mem_resonance = ResonanceHasher.calculate_resonance_function(tuple(mem["xyz"]))
-            resonance_diff = abs(query_resonance - mem_resonance)
-            mem["resonance_function_score"] = max(0.0, 1.0 - (resonance_diff / 6.0))
-        else:
-            mem["resonance_function_score"] = 0.0
-        
-        # Calculate Layer 4: Anchor Energy
-        if mem.get("xyz") and all(x is not None for x in mem["xyz"]):
-            mem["anchor_energy"] = ResonanceHasher.calculate_anchor_energy(
-                np.array(query_xyz),
-                np.array(mem["xyz"])
-            )
-        else:
-            mem["anchor_energy"] = 0.0
-        
-        # Apply Magnetic Pull if enabled
-        if request.apply_magnetic_pull:
-            mem["magnetic_score"] = resonance_hasher.magnetic_pull(mem.get("resonance_score", 0.0))
-        else:
-            mem["magnetic_score"] = mem.get("resonance_score", 0.0)
     
     # Apply hybrid ranking
     ranked_memories = rank_memories(memories_list)

@@ -10,14 +10,16 @@ from __future__ import annotations
 from typing import List, Dict
 
 # Weight configuration for hybrid scoring
-# Updated to include Layer 4 (Anchor Energy) and Layer 5 (Resonance Function)
-W_RAG = 0.25               # pgvector cosine similarity (semantic)
-W_RESONANCE = 0.25          # Embedding cosine resonance (semantic — was hash Hamming noise)
-W_PROXIMITY = 0.10          # XYZ proximity (embedding-projected coordinates)
-W_RECENCY = 0.05            # Timestamp-based decay
-W_ANCHOR = 0.05             # Anchor importance
-W_RESONANCE_FUNCTION = 0.15 # Layer 5: R(h) = sin(a·x) + cos(b·y) + tan(c·z)
-W_ANCHOR_ENERGY = 0.15      # Layer 4: E_j(s) = exp(-β·||s - A_j||²)
+# Rebalanced after benchmark v2 (conversation-based ground truth):
+#   Plain RAG P@5=0.446, BM25 P@5=0.440, old hybrid P@5=0.356
+#   Old hybrid lost 19-31% vs baselines because geometric signals (proximity,
+#   resonance function, anchor energy) diluted the strong embedding signal.
+#   XYZ coordinates are VISUALIZATION ONLY — not used for retrieval ranking.
+#   3D projection compresses 512-dim to 3-dim (~99.4% information loss).
+W_RAG = 0.55               # pgvector cosine similarity — strongest signal
+W_BM25 = 0.20              # BM25 keyword score — competitive with RAG for conversation retrieval
+W_RECENCY = 0.15           # Timestamp-based decay — recent memories matter
+W_RESONANCE = 0.10         # Embedding cosine resonance (tiebreaker for RAG)
 
 
 def safe(v, default=0.0):
@@ -41,20 +43,15 @@ def safe(v, default=0.0):
 
 def compute_score(mem: Dict) -> float:
     """
-    Compute final hybrid score combining:
-    - RAG semantic score
-    - Hash Sphere resonance (hash similarity)
-    - XYZ proximity score
-    - Recency (timestamp-based)
-    - Anchor importance
-    - Resonance function score (Layer 5: R(h) = sin(a·x) + cos(b·y) + tan(c·z))
-    - Anchor energy (Layer 4: E_j(s) = exp(-β·||s - A_j||²))
+    Compute final hybrid score combining 4 signals:
+    - RAG cosine similarity (0.55) — strongest signal
+    - BM25 keyword score (0.20) — complements RAG for exact matches
+    - Recency decay (0.15) — recent memories preferred
+    - Embedding resonance (0.10) — tiebreaker
     
-    PATCH #11: This is how Anthropic agent memory, Google's ReAct-RAG, 
-    and DeepMind's TREE memory scoring work internally.
-    
-    WEEK 2 UPDATE: Added Layer 4 (Anchor Energy) and Layer 5 (Resonance Function)
-    from Hash Sphere foundational architecture.
+    XYZ coordinates are VISUALIZATION ONLY — not used for ranking.
+    Benchmark v2 showed geometric signals (proximity, resonance function,
+    anchor energy) diluted retrieval quality by 19-31%.
     
     Args:
         mem: Memory dict with scoring fields
@@ -62,26 +59,16 @@ def compute_score(mem: Dict) -> float:
     Returns:
         Final hybrid score (0-1)
     """
-    rag_score = safe(mem.get("rag_score") or mem.get("similarity_score") or mem.get("semantic_score"))  # 0–1
-    resonance_score = safe(mem.get("resonance_score"))  # 0–1
-    proximity_score = safe(mem.get("proximity_score"))  # 0–1
-    recency_score = safe(mem.get("recency_score"))  # 0–1
-    anchor_score = safe(mem.get("anchor_score") or mem.get("importance_score"))  # 0–1
-    
-    # Layer 5: Resonance Function - R(h) = sin(a·x) + cos(b·y) + tan(c·z)
-    resonance_function_score = safe(mem.get("resonance_function_score"))  # 0–1
-    
-    # Layer 4: Anchor Energy - E_j(s) = exp(-β·||s - A_j||²)
-    anchor_energy = safe(mem.get("anchor_energy"))  # 0–1
+    rag_score = safe(mem.get("rag_score") or mem.get("similarity_score") or mem.get("semantic_score"))
+    bm25_score = safe(mem.get("bm25_score"))
+    recency_score = safe(mem.get("recency_score"))
+    resonance_score = safe(mem.get("resonance_score"))
     
     final = (
         rag_score * W_RAG +
-        resonance_score * W_RESONANCE +
-        proximity_score * W_PROXIMITY +
+        bm25_score * W_BM25 +
         recency_score * W_RECENCY +
-        anchor_score * W_ANCHOR +
-        resonance_function_score * W_RESONANCE_FUNCTION +
-        anchor_energy * W_ANCHOR_ENERGY
+        resonance_score * W_RESONANCE
     )
     
     return final
