@@ -150,6 +150,10 @@ class ResonanceHasher:
     # Cache for PCA model (reused across calls)
     _pca_model: Optional[PCA] = None
     
+    # Deterministic projection matrix for embedding → 3D (seeded for consistency)
+    _projection_matrix: Optional[np.ndarray] = None
+    _projection_dim: Optional[int] = None
+    
     # Resonance function constants (from foundational architecture)
     RESONANCE_A = np.pi / 4  # sin coefficient
     RESONANCE_B = np.e / 3    # cos coefficient
@@ -306,29 +310,56 @@ class ResonanceHasher:
         normalized = text.lower().strip()
         
         # Layer 2: Hash Generation
-        coords.meaning_hash = hashlib.sha256(normalized.encode()).hexdigest()[:20]
-        coords.intensity_score = ResonanceHasher._calculate_energy(normalized)
-        coords.sentiment_score = ResonanceHasher._calculate_spin(normalized)
-        coords.energy_hash = hashlib.sha256(str(coords.intensity_score).encode()).hexdigest()[:8]
-        coords.spin_hash = hashlib.sha256(str(coords.sentiment_score).encode()).hexdigest()[:8]
+        # meaning_hash: SimHash (locality-sensitive) when embedding available, SHA-256 fallback
+        if embedding and len(embedding) >= 3:
+            try:
+                from .simhash import simhash_embedding, simhash_to_hex
+                coords.meaning_hash = simhash_to_hex(simhash_embedding(embedding))
+            except Exception:
+                coords.meaning_hash = hashlib.sha256(normalized.encode()).hexdigest()[:20]
+        else:
+            coords.meaning_hash = hashlib.sha256(normalized.encode()).hexdigest()[:20]
         
-        # Generate unique hash (with timestamp for uniqueness)
+        # Generate unique hash (SHA-256 + timestamp for dedup uniqueness)
         coords.hash = ResonanceHasher.hash_text(text, context)
         
         # Layer 3: Universe ID
         coords.universe_id = ResonanceHasher.hash_to_universe_id(text)
         
+        # Layer 2b: Semantic properties (intensity, sentiment)
+        # PRIORITY: Trained encoder (ML) > hardcoded heuristics
+        _used_trained = False
+        if embedding and len(embedding) >= 3:
+            try:
+                from .trained_semantic_encoder import get_trained_encoder
+                trained_enc = get_trained_encoder()
+                if trained_enc.is_available:
+                    coords.intensity_score = trained_enc.predict_temperature(embedding)
+                    coords.sentiment_score = trained_enc.predict_polarity(embedding)
+                    _used_trained = True
+            except Exception:
+                pass
+        
+        if not _used_trained:
+            coords.intensity_score = ResonanceHasher._calculate_energy(normalized)
+            coords.sentiment_score = ResonanceHasher._calculate_spin(normalized)
+        
+        coords.energy_hash = hashlib.sha256(str(coords.intensity_score).encode()).hexdigest()[:8]
+        coords.spin_hash = hashlib.sha256(str(coords.sentiment_score).encode()).hexdigest()[:8]
+        
         # Layer 4 & 5: Coordinate Calculation
-        # HYBRID: Use semantic_encoder for XYZ (better clustering)
-        try:
-            from .semantic_encoder import get_semantic_encoder
-            semantic_enc = get_semantic_encoder()
-            x, y, z = semantic_enc.calculate_xyz(text)
-        except ImportError:
-            # Fallback to original hash-based coordinates
-            if embedding and len(embedding) >= 3:
-                x, y, z = ResonanceHasher.calculate_xyz_coordinates(embedding)
-            else:
+        # PRIORITY: Embedding-based (semantic) > semantic_encoder (hardcoded) > hash-based (random)
+        if embedding and len(embedding) >= 3:
+            # BEST: Use real embedding for XYZ — similar text → similar coordinates
+            x, y, z = ResonanceHasher.embedding_to_xyz(embedding)
+        else:
+            # FALLBACK: Use hardcoded semantic_encoder
+            try:
+                from .semantic_encoder import get_semantic_encoder
+                semantic_enc = get_semantic_encoder()
+                x, y, z = semantic_enc.calculate_xyz(text)
+            except ImportError:
+                # LAST RESORT: Hash-based coordinates (NOT semantic)
                 x, y, z = ResonanceHasher.hash_to_coords(coords.universe_id)
         
         coords.x, coords.y, coords.z = x, y, z
@@ -521,12 +552,72 @@ class ResonanceHasher:
         return unique_anchors
     
     @staticmethod
+    def embedding_to_xyz(embedding: List[float]) -> Tuple[float, float, float]:
+        """
+        Project embedding to 3D semantic coordinates.
+        
+        Priority:
+        1. Learned sphere projection (triplet-loss trained neural network)
+        2. Deterministic random projection (Johnson-Lindenstrauss fallback)
+        
+        Both are deterministic: same embedding → same xyz.
+        Both are semantic: similar embeddings → similar xyz.
+        The learned projection is better because it's trained to cluster by meaning.
+        
+        Args:
+            embedding: High-dimensional embedding vector (e.g., 512-dim from Nomic)
+        
+        Returns:
+            Tuple of (x, y, z) coordinates in [0, 1] range on the semantic sphere
+        """
+        if not embedding or len(embedding) < 3:
+            return (0.5, 0.5, 0.5)
+        
+        # Try learned sphere projection first
+        try:
+            from .sphere_projection import get_sphere_projector
+            projector = get_sphere_projector()
+            if projector.is_available:
+                return projector.project(embedding)
+        except Exception:
+            pass
+        
+        # Fallback: deterministic random projection (JL lemma)
+        return ResonanceHasher._random_project_xyz(embedding)
+    
+    @staticmethod
+    def _random_project_xyz(embedding: List[float]) -> Tuple[float, float, float]:
+        """Deterministic random projection fallback for embedding → 3D.
+        
+        Uses a seeded (seed=42) Gaussian random projection matrix that
+        preserves relative distances between points (JL lemma).
+        """
+        emb = np.array(embedding, dtype=np.float64)
+        dim = len(emb)
+        
+        # Build or reuse deterministic projection matrix
+        if ResonanceHasher._projection_matrix is None or ResonanceHasher._projection_dim != dim:
+            rng = np.random.RandomState(42)
+            proj = rng.randn(3, dim)
+            proj = proj / np.linalg.norm(proj, axis=1, keepdims=True)
+            ResonanceHasher._projection_matrix = proj
+            ResonanceHasher._projection_dim = dim
+        
+        # Project: 3D = projection_matrix @ embedding
+        xyz_raw = ResonanceHasher._projection_matrix @ emb
+        
+        # Sigmoid to map to [0, 1] — smooth, deterministic, preserves ordering
+        xyz = 1.0 / (1.0 + np.exp(-xyz_raw))
+        
+        return (float(xyz[0]), float(xyz[1]), float(xyz[2]))
+    
+    @staticmethod
     def calculate_xyz_coordinates(embedding: List[float]) -> Tuple[float, float, float]:
         """
         Convert embedding vector to 3D XYZ coordinates in semantic space.
         
-        Uses PCA (Principal Component Analysis) to reduce embedding dimensions to 3D.
-        This creates a 3D semantic space where similar meanings are close together.
+        DEPRECATED: Use embedding_to_xyz() instead for deterministic semantic projection.
+        This method uses PCA with a single-sample fit which is mathematically meaningless.
         
         Args:
             embedding: High-dimensional embedding vector (e.g., 384, 768, 1536 dimensions)
@@ -874,6 +965,44 @@ class ResonanceHasher:
         s = s0 / np.linalg.norm(s0)
         
         return s
+    
+    @staticmethod
+    def calculate_resonance_from_embeddings(embedding1, embedding2) -> float:
+        """
+        Calculate TRUE semantic resonance using embedding cosine similarity.
+        
+        Replaces the hash Hamming approach (random noise ~6.25% baseline) with
+        real semantic comparison. Cosine similarity on normalized embeddings = dot product.
+        
+        Args:
+            embedding1: First embedding vector (list or np.ndarray)
+            embedding2: Second embedding vector (list or np.ndarray)
+        
+        Returns:
+            Resonance score 0.0–1.0 (1.0 = identical meaning)
+        """
+        if embedding1 is None or embedding2 is None:
+            return 0.0
+        
+        e1 = np.array(embedding1, dtype=np.float64).ravel()
+        e2 = np.array(embedding2, dtype=np.float64).ravel()
+        
+        # Handle dimension mismatch by truncating to smaller
+        min_len = min(len(e1), len(e2))
+        if min_len == 0:
+            return 0.0
+        e1 = e1[:min_len]
+        e2 = e2[:min_len]
+        
+        norm1 = np.linalg.norm(e1)
+        norm2 = np.linalg.norm(e2)
+        
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+        
+        cosine = float(np.dot(e1, e2) / (norm1 * norm2))
+        # Clamp to [0, 1] — negative cosine means opposite meaning → 0 resonance
+        return max(0.0, min(1.0, cosine))
     
     @staticmethod
     def calculate_resonance_function(xyz: Tuple[float, float, float]) -> float:

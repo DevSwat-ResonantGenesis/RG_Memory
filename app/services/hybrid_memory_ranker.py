@@ -11,13 +11,13 @@ from typing import List, Dict
 
 # Weight configuration for hybrid scoring
 # Updated to include Layer 4 (Anchor Energy) and Layer 5 (Resonance Function)
-W_RAG = 0.30
-W_RESONANCE = 0.25
-W_PROXIMITY = 0.10
-W_RECENCY = 0.05
-W_ANCHOR = 0.05
-W_RESONANCE_FUNCTION = 0.15  # Layer 5: R(h) = sin(a·x) + cos(b·y) + tan(c·z)
-W_ANCHOR_ENERGY = 0.10       # Layer 4: E_j(s) = exp(-β·||s - A_j||²)
+W_RAG = 0.25               # pgvector cosine similarity (semantic)
+W_RESONANCE = 0.25          # Embedding cosine resonance (semantic — was hash Hamming noise)
+W_PROXIMITY = 0.10          # XYZ proximity (embedding-projected coordinates)
+W_RECENCY = 0.05            # Timestamp-based decay
+W_ANCHOR = 0.05             # Anchor importance
+W_RESONANCE_FUNCTION = 0.15 # Layer 5: R(h) = sin(a·x) + cos(b·y) + tan(c·z)
+W_ANCHOR_ENERGY = 0.15      # Layer 4: E_j(s) = exp(-β·||s - A_j||²)
 
 
 def safe(v, default=0.0):

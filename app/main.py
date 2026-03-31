@@ -359,6 +359,38 @@ async def hash_sphere_health():
     return {"status": "ok", "service": "hash-sphere"}
 
 
+@app.post("/memory/hash-sphere/retrain")
+async def trigger_retrain():
+    """Manually trigger retraining of Hash Sphere ML models.
+    
+    Retrains:
+    - Semantic encoder (cluster/temperature/polarity from embeddings)
+    - Sphere projection (512→3D triplet-loss neural network)
+    
+    Uses production MemoryEmbedding data as training source.
+    """
+    try:
+        from .services.retraining_loop import get_retrainer
+        retrainer = get_retrainer()
+        result = await retrainer.trigger_manual_retrain()
+        return result
+    except Exception as e:
+        logger.error(f"Manual retrain failed: {e}")
+        return {"status": "failed", "error": str(e)}
+
+
+@app.on_event("startup")
+async def start_retraining_loop():
+    """Start the autonomous retraining loop on app startup."""
+    try:
+        from .services.retraining_loop import get_retrainer
+        retrainer = get_retrainer()
+        await retrainer.start()
+        logger.info("Hash Sphere autonomous retraining loop started")
+    except Exception as e:
+        logger.warning(f"Failed to start retraining loop: {e}")
+
+
 @app.post("/memory/clusters/compute")
 async def compute_clusters(batch_size: int = 500):
     """Retroactively compute cluster assignments for memories missing cluster_name.

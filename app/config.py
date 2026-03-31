@@ -49,3 +49,6 @@ DATABASE_URL = os.getenv(
     f"postgresql+asyncpg://{settings.POSTGRES_USER}:{settings.POSTGRES_PASSWORD}"
     f"@{settings.POSTGRES_HOST}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}"
 ).replace("postgresql://", "postgresql+asyncpg://").replace("?sslmode=", "?ssl=")
+
+# ML Database — separate DB for retraining state/metrics (avoids dual pool on main DB)
+ML_DATABASE_URL = os.getenv("ML_DATABASE_URL", "")

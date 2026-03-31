@@ -162,10 +162,19 @@ async def ingest_memory(
     except Exception:
         chat_uuid = None
 
+    # Generate embedding FIRST so it can drive XYZ coordinate calculation
+    # This ensures Hash Sphere coordinates are SEMANTIC (similar text → similar xyz)
+    ingest_embedding = None
+    if payload.generate_embedding:
+        ingest_embeddings = await embeddings_generator.generate([payload.content], task="search_document")
+        if ingest_embeddings:
+            ingest_embedding = ingest_embeddings[0]
+    
     # Generate FULL Hash Sphere coordinates using 9-Layer Architecture
+    # Pass embedding so XYZ is derived from semantic space (not hardcoded word lists)
     coords = ResonanceHasher.compute_full_coordinates(
         text=payload.content,
-        embedding=None,  # Will be computed below if requested
+        embedding=ingest_embedding,
         context=payload.metadata.get("context") if payload.metadata else None
     )
     
@@ -217,18 +226,16 @@ async def ingest_memory(
     await session.commit()
     await session.refresh(record)
 
-    # Generate embedding if requested (use search_document task for storage)
-    if payload.generate_embedding:
-        embeddings = await embeddings_generator.generate([payload.content], task="search_document")
-        if embeddings:
-            embedding_record = MemoryEmbedding(
-                memory_id=record.id,
-                user_id=user_uuid,
-                org_id=org_uuid,
-                embedding=embeddings[0],
-            )
-            session.add(embedding_record)
-            await session.commit()
+    # Store the embedding in MemoryEmbedding table for vector search
+    if ingest_embedding:
+        embedding_record = MemoryEmbedding(
+            memory_id=record.id,
+            user_id=user_uuid,
+            org_id=org_uuid,
+            embedding=ingest_embedding,
+        )
+        session.add(embedding_record)
+        await session.commit()
     
     # Auto-create memory anchors from meaningful content
     # Anchors enable fast keyword-based memory lookup (PRIORITY 1 in extraction)
@@ -418,8 +425,13 @@ async def retrieve_memory(
             if r.xyz and isinstance(r.xyz, list) and len(r.xyz) == 3 and all(v is not None for v in r.xyz):
                 xyz = (float(r.xyz[0]), float(r.xyz[1]), float(r.xyz[2]))
 
+            # Use embedding similarity as resonance_score (semantic)
+            # r.similarity comes from pgvector cosine — it IS the embedding cosine
             resonance_score = 0.0
-            if r.hash:
+            if r.similarity and r.similarity > 0:
+                resonance_score = float(r.similarity)
+            elif r.hash:
+                # FALLBACK: hash Hamming (legacy, only when no embedding similarity)
                 try:
                     resonance_score = float(resonance_hasher.calculate_resonance(query_hash, r.hash))
                 except Exception:
@@ -568,7 +580,10 @@ async def retrieve_memory(
                 final_results = [item["response"] for item in sorted_items]
 
                 if retrieval_mode == "hybrid":
-                    query_coords = ResonanceHasher.compute_full_coordinates(payload.query)
+                    query_coords = ResonanceHasher.compute_full_coordinates(
+                        payload.query,
+                        embedding=query_embedding,
+                    )
                     query_xyz = (float(query_coords.x), float(query_coords.y), float(query_coords.z))
                     query_hash = ResonanceHasher.hash_text(payload.query)
                     query_resonance = float(getattr(query_coords, "resonance_score", 0.0) or 0.0)
@@ -897,9 +912,21 @@ async def extract_hash_sphere_memories(
     start_time = time.perf_counter()
     methods_used = []
     
-    # Generate query hash and coordinates
+    # Generate query embedding FIRST so coordinates are semantic
+    query_embedding = None
+    try:
+        query_embeddings = await embeddings_generator.generate([request.query], task="search_query")
+        if query_embeddings:
+            query_embedding = query_embeddings[0]
+    except Exception:
+        pass
+    
+    # Generate query hash and coordinates (embedding-driven XYZ)
     query_hash = ResonanceHasher.hash_text(request.query)
-    query_coords = ResonanceHasher.compute_full_coordinates(request.query)
+    query_coords = ResonanceHasher.compute_full_coordinates(
+        request.query,
+        embedding=query_embedding,
+    )
     query_xyz = (query_coords.x, query_coords.y, query_coords.z)
     query_resonance = query_coords.resonance_score
     
@@ -997,44 +1024,107 @@ async def extract_hash_sphere_memories(
     
     # ============================================
     # METHOD 3: Resonance filtering (PRIORITY 3)
+    # Uses EMBEDDING cosine similarity (semantic) instead of hash Hamming (noise)
     # ============================================
     if request.use_resonance:
         try:
-            # Get memories with hashes
-            stmt = select(MemoryRecord).where(
-                MemoryRecord.hash.isnot(None)
-            ).limit(200)
-            if user_uuid:
-                stmt = stmt.where(MemoryRecord.user_id == user_uuid)
-            
-            result = await session.execute(stmt)
-            records = result.scalars().all()
-            
-            for record in records:
-                if record.hash:
-                    resonance = resonance_hasher.calculate_resonance(query_hash, record.hash)
+            if query_embedding:
+                # SEMANTIC: Load memory embeddings and compute cosine similarity
+                emb_stmt = select(MemoryEmbedding).limit(200)
+                if user_uuid:
+                    emb_stmt = emb_stmt.where(MemoryEmbedding.user_id == user_uuid)
+                
+                emb_result = await session.execute(emb_stmt)
+                emb_records = emb_result.scalars().all()
+                
+                # Build memory_id → embedding lookup
+                mem_embedding_map = {}
+                for emb_rec in emb_records:
+                    mem_embedding_map[str(emb_rec.memory_id)] = emb_rec.embedding
+                
+                # Load the actual memory records for these embeddings
+                if mem_embedding_map:
+                    from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+                    mem_ids_to_load = [
+                        uuid.UUID(mid) for mid in mem_embedding_map.keys()
+                        if mid not in all_memories
+                    ]
+                    if mem_ids_to_load:
+                        rec_stmt = select(MemoryRecord).where(
+                            MemoryRecord.id.in_(mem_ids_to_load)
+                        )
+                        rec_result = await session.execute(rec_stmt)
+                        rec_records = rec_result.scalars().all()
+                        
+                        for record in rec_records:
+                            content = decrypt_memory_content(record.content)
+                            if not content or len(content) < 10 or content.startswith("ENC2:"):
+                                continue
+                            
+                            mem_id = str(record.id)
+                            mem_emb = mem_embedding_map.get(mem_id)
+                            resonance = ResonanceHasher.calculate_resonance_from_embeddings(
+                                query_embedding, mem_emb
+                            ) if mem_emb else 0.0
+                            
+                            if mem_id not in all_memories:
+                                all_memories[mem_id] = {
+                                    "id": mem_id,
+                                    "content": content,
+                                    "type": record.source or "memory",
+                                    "hash": record.hash,
+                                    "xyz": [record.xyz_x, record.xyz_y, record.xyz_z] if record.xyz_x else None,
+                                    "resonance_score": resonance,
+                                    "timestamp": record.created_at.isoformat() if record.created_at else None,
+                                }
+                            else:
+                                all_memories[mem_id]["resonance_score"] = resonance
                     
-                    # Decrypt and quality-filter
-                    content = decrypt_memory_content(record.content)
-                    if not content or len(content) < 10 or content.startswith("ENC2:"):
-                        continue
-                    
-                    mem_id = str(record.id)
-                    if mem_id not in all_memories:
-                        all_memories[mem_id] = {
-                            "id": mem_id,
-                            "content": content,
-                            "type": record.source or "memory",
-                            "hash": record.hash,
-                            "xyz": [record.xyz_x, record.xyz_y, record.xyz_z] if record.xyz_x else None,
-                            "resonance_score": resonance,
-                            "timestamp": record.created_at.isoformat() if record.created_at else None,
-                        }
-                    else:
-                        all_memories[mem_id]["resonance_score"] = resonance
-            
-            if records:
-                methods_used.append("resonance")
+                    # Also update resonance_score for memories already collected by other methods
+                    for mem_id, mem_data in all_memories.items():
+                        if mem_id in mem_embedding_map:
+                            mem_emb = mem_embedding_map[mem_id]
+                            mem_data["resonance_score"] = ResonanceHasher.calculate_resonance_from_embeddings(
+                                query_embedding, mem_emb
+                            )
+                
+                if emb_records:
+                    methods_used.append("resonance_embedding")
+            else:
+                # FALLBACK: Hash Hamming (legacy, no embedding available)
+                stmt = select(MemoryRecord).where(
+                    MemoryRecord.hash.isnot(None)
+                ).limit(200)
+                if user_uuid:
+                    stmt = stmt.where(MemoryRecord.user_id == user_uuid)
+                
+                result = await session.execute(stmt)
+                records = result.scalars().all()
+                
+                for record in records:
+                    if record.hash:
+                        resonance = resonance_hasher.calculate_resonance(query_hash, record.hash)
+                        
+                        content = decrypt_memory_content(record.content)
+                        if not content or len(content) < 10 or content.startswith("ENC2:"):
+                            continue
+                        
+                        mem_id = str(record.id)
+                        if mem_id not in all_memories:
+                            all_memories[mem_id] = {
+                                "id": mem_id,
+                                "content": content,
+                                "type": record.source or "memory",
+                                "hash": record.hash,
+                                "xyz": [record.xyz_x, record.xyz_y, record.xyz_z] if record.xyz_x else None,
+                                "resonance_score": resonance,
+                                "timestamp": record.created_at.isoformat() if record.created_at else None,
+                            }
+                        else:
+                            all_memories[mem_id]["resonance_score"] = resonance
+                
+                if records:
+                    methods_used.append("resonance_hash_legacy")
         except Exception as e:
             pass
     
@@ -1046,11 +1136,8 @@ async def extract_hash_sphere_memories(
     # ============================================
     if request.use_rag_fallback:
         try:
-            # Generate query embedding
-            query_embeddings = await embeddings_generator.generate([request.query], task="search_query")
-            if query_embeddings:
-                query_embedding = query_embeddings[0]
-                
+            # Reuse query_embedding already generated above (avoid double computation)
+            if query_embedding:
                 # Use pgvector search — fetch more candidates for better ranking
                 pgvector_results = await pgvector_search.search_similar(
                     session=session,

@@ -109,7 +109,12 @@ class ResonanceHasher:
         return list(set(anchors))[:10]
     
     def calculate_resonance(self, hash1: str, hash2: str) -> float:
-        """Calculate resonance score between two hashes."""
+        """Calculate resonance score between two hashes (LEGACY — hash Hamming).
+        
+        WARNING: This compares SHA-256 hex characters which is random noise
+        for semantically similar text (~6.25% baseline). Use
+        calculate_resonance_from_embeddings() instead when embeddings are available.
+        """
         if not hash1 or not hash2:
             return 0.0
         
@@ -132,6 +137,43 @@ class ResonanceHasher:
             hamming_similarity = char_similarity
         
         return (char_similarity + hamming_similarity) / 2
+    
+    @staticmethod
+    def calculate_resonance_from_embeddings(embedding1, embedding2) -> float:
+        """Calculate TRUE semantic resonance using embedding cosine similarity.
+        
+        This replaces the hash Hamming approach with real semantic comparison.
+        Cosine similarity on normalized embeddings = dot product.
+        
+        Args:
+            embedding1: First embedding vector (list or np.ndarray)
+            embedding2: Second embedding vector (list or np.ndarray)
+        
+        Returns:
+            Resonance score 0.0–1.0 (1.0 = identical meaning)
+        """
+        if embedding1 is None or embedding2 is None:
+            return 0.0
+        
+        e1 = np.array(embedding1, dtype=np.float64)
+        e2 = np.array(embedding2, dtype=np.float64)
+        
+        # Handle dimension mismatch by truncating to smaller
+        min_len = min(len(e1), len(e2))
+        if min_len == 0:
+            return 0.0
+        e1 = e1[:min_len]
+        e2 = e2[:min_len]
+        
+        norm1 = np.linalg.norm(e1)
+        norm2 = np.linalg.norm(e2)
+        
+        if norm1 == 0 or norm2 == 0:
+            return 0.0
+        
+        cosine = float(np.dot(e1, e2) / (norm1 * norm2))
+        # Clamp to [0, 1] — negative cosine means opposite meaning → 0 resonance
+        return max(0.0, min(1.0, cosine))
     
     def to_xyz(self, hash_value: str) -> Tuple[float, float, float]:
         """Convert hash to 3D coordinates."""
