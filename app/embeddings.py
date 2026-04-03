@@ -1,14 +1,16 @@
 """Embeddings generator for memory service.
 
 Supports multiple embedding providers:
-1. Nomic Embed (local, free, high quality) - DEFAULT
-2. OpenAI API (cloud, paid)
-3. Hash-based fallback (development only)
+1. MiniLM-L6-v2 (local, free, LOCOMO-optimized) - DEFAULT
+2. Nomic Embed v1.5 (local, free, 512-dim) - optional
+3. OpenAI API (cloud, paid)
+4. Hash-based fallback (development only)
 
-Nomic Embed v1.5 features:
-- 768 dimensions (or 512/256/128 with Matryoshka)
-- 8192 token context
-- Semantic search, clustering, classification
+MiniLM-L6-v2 features:
+- 384 dimensions
+- Optimized for LOCOMO benchmark (0.597 vs Nomic's 0.472)
+- Better deduplication balance at threshold 0.85
+- Faster inference than Nomic
 """
 
 import hashlib
@@ -24,7 +26,10 @@ from .config import settings
 
 logger = logging.getLogger(__name__)
 
-# Task prefixes for Nomic Embed
+# Import MiniLM for LOCOMO-optimized embeddings
+from .embeddings_minilm import MiniLMEmbeddings
+
+# Task prefixes for Nomic Embed (kept for backward compatibility)
 TASK_PREFIXES = {
     "search_document": "search_document: ",
     "search_query": "search_query: ",
@@ -100,12 +105,13 @@ class NomicEmbeddings:
 
 
 class EmbeddingsGenerator:
-    """Generate embeddings using Nomic Embed, OpenAI, or fallback.
+    """Generate embeddings using MiniLM, Nomic, OpenAI, or fallback.
     
-    Priority order:
-    1. Nomic Embed (local, free) - if available
-    2. OpenAI API - if API key configured
-    3. Hash-based fallback - development only
+    Priority order (based on LOCOMO benchmark results):
+    1. MiniLM-L6-v2 (local, free, LOCOMO-optimized) - DEFAULT
+    2. Nomic Embed v1.5 (local, free) - optional
+    3. OpenAI API - if API key configured
+    4. Hash-based fallback - development only
     """
 
     def __init__(self):
@@ -113,14 +119,20 @@ class EmbeddingsGenerator:
         self.openai_model = getattr(settings, "EMBEDDING_MODEL", "text-embedding-3-small")
         self.openai_dimensions = getattr(settings, "EMBEDDING_DIMENSIONS", 1536)
         
-        # Nomic Embed with configurable dimensions
+        # MiniLM - LOCOMO optimized (384-dim, 0.597 score)
+        self.minilm = MiniLMEmbeddings()
+        self._use_minilm = getattr(settings, "USE_MINILM_EMBED", True)
+        
+        # Nomic Embed with configurable dimensions (512-dim, 0.472 score)
         matryoshka_dim = getattr(settings, "NOMIC_MATRYOSHKA_DIM", 512)
         self.nomic = NomicEmbeddings(matryoshka_dim=matryoshka_dim)
-        self._use_nomic = getattr(settings, "USE_NOMIC_EMBED", True)
+        self._use_nomic = getattr(settings, "USE_NOMIC_EMBED", False)  # Disabled by default
     
     @property
     def dimensions(self) -> int:
         """Return current embedding dimensions."""
+        if self._use_minilm and self.minilm._initialized:
+            return self.minilm.embedding_dim
         if self._use_nomic and self.nomic._initialized:
             return self.nomic.dimensions
         return self.openai_dimensions
@@ -134,9 +146,20 @@ class EmbeddingsGenerator:
         
         Args:
             texts: List of texts to embed
-            task: Task type for Nomic (search_document, search_query, etc.)
+            task: Task type for Nomic (ignored for MiniLM/OpenAI)
         """
-        # Try Nomic Embed first (local, free)
+        # Try MiniLM first (LOCOMO optimized, 0.597 score)
+        if self._use_minilm:
+            try:
+                embeddings = self.minilm.encode(texts)
+                if embeddings:
+                    logger.debug(f"✅ Generated {len(embeddings)} MiniLM embeddings")
+                    return embeddings
+            except Exception as e:
+                logger.warning(f"⚠️ MiniLM failed: {e}, falling back...")
+                self._use_minilm = False
+        
+        # Try Nomic Embed next (512-dim, 0.472 score)
         if self._use_nomic:
             try:
                 embeddings = self.nomic.encode(texts, task=task)
