@@ -683,7 +683,7 @@
                         const pts = curve.getPoints(8);
                         const geo = new THREE.BufferGeometry().setFromPoints(pts);
                         const opacity = Math.max(0.02, 0.08 - dist * 0.015);
-                        const lineMat = new THREE.LineBasicMaterial({ color: 0xFFD800, transparent: true, opacity });
+                        const lineMat = new THREE.LineBasicMaterial({ color: 0x667eea, transparent: true, opacity });
                         const line = new THREE.Line(geo, lineMat);
                         connectionGroup.add(line);
                         connectionLines.push(line);
