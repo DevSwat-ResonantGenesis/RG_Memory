@@ -23,14 +23,14 @@
         .panel-btn.minimize:hover { background: rgba(255,180,50,0.7); }
         .panel.minimized .panel-content { display: none; }
 
-        #controls { top: 50px; left: 10px; width: 200px; max-height: calc(100vh - 70px); overflow-y: auto; }
+        #controls { top: 50px; left: 10px; width: 200px; max-height: calc(100vh - 70px); overflow-y: auto; overflow-x: hidden; }
         #stats-panel { bottom: 10px; right: 10px; width: 200px; display: none; }
         #info-panel { top: 50px; right: 10px; width: 220px; max-height: 45vh; overflow-y: auto; display: none; }
         #memory-list-panel { bottom: 10px; left: 220px; width: 200px; max-height: 35vh; overflow-y: auto; display: none; }
-        #tools-panel { top: 50px; left: 220px; width: 240px; max-height: calc(100vh - 70px); overflow-y: auto; display: none; }
+        #tools-panel { top: 50px; left: 220px; width: 240px; max-height: calc(100vh - 70px); overflow-y: auto; overflow-x: hidden; display: none; }
         #system-panel { bottom: 10px; right: 220px; width: 220px; display: none; }
-        #data-panel { top: 50px; left: 470px; width: 260px; max-height: calc(100vh - 70px); overflow-y: auto; display: none; }
-        #rag-panel { top: 50px; right: 230px; width: 260px; max-height: calc(100vh - 70px); overflow-y: auto; display: none; }
+        #data-panel { top: 50px; left: 470px; width: 260px; max-height: calc(100vh - 70px); overflow-y: auto; overflow-x: hidden; display: none; }
+        #rag-panel { top: 50px; right: 230px; width: 260px; max-height: calc(100vh - 70px); overflow-y: auto; overflow-x: hidden; display: none; }
         #archive-panel { bottom: 10px; left: 430px; width: 240px; max-height: 50vh; overflow-y: auto; display: none; }
         .tab-bar { display: flex; gap: 2px; margin-bottom: 6px; }
         .tab-bar button { flex:1; padding:3px 0; font-size:0.7em; border-radius:6px; }
@@ -61,11 +61,11 @@
         .stat-value.danger { color: #FF5252; }
         .stat-value.info { color: #FFD800; }
 
-        .legend-item { display: flex; align-items: center; margin: 3px 0; font-size: 0.8em; }
-        .legend-color { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; }
+        .legend-item { display: flex; align-items: center; margin: 4px 0; font-size: 0.8em; }
+        .legend-color { width: 14px; height: 14px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; border: 2px solid rgba(255,255,255,0.12); }
 
-        .toggle-row { display: flex; gap: 5px; margin-bottom: 8px; }
-        .toggle-btn { flex: 1; padding: 5px; font-size: 0.75em; transition: all 0.15s ease; }
+        .toggle-row { display: flex; gap: 3px; margin-bottom: 8px; overflow: hidden; }
+        .toggle-btn { flex: 1 1 0; min-width: 0; padding: 5px 2px; font-size: 0.7em; transition: all 0.15s ease; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .toggle-btn.active { background: rgba(255, 216, 0, 0.12); border: 1px solid rgba(255, 216, 0, 0.25); }
 
         .memory-item { padding: 6px 8px; margin: 3px 0; background: rgba(14,14,18,0.7); border-radius: 6px; border-left: 3px solid rgba(255,255,255,0.06); cursor: pointer; transition: all 0.2s; font-size: 0.85em; }
@@ -78,8 +78,8 @@
         .search-box input { flex: 1; }
         .search-box button { width: 60px; }
 
-        #panel-toolbar { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(14, 14, 18, 0.9); border: 1px solid rgba(255, 216, 0, 0.15); border-radius: 20px; padding: 5px 15px; display: flex; gap: 8px; z-index: 100; backdrop-filter: blur(16px); box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
-        .toolbar-btn { width: auto; padding: 5px 10px; margin: 0; font-size: 0.7em; border-radius: 12px; opacity: 0.6; cursor: pointer; }
+        #panel-toolbar { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(14, 14, 18, 0.9); border: 1px solid rgba(255, 216, 0, 0.15); border-radius: 20px; padding: 5px 10px; display: flex; gap: 4px; z-index: 100; backdrop-filter: blur(16px); box-shadow: 0 4px 20px rgba(0,0,0,0.4); max-width: 95vw; overflow-x: auto; overflow-y: hidden; flex-wrap: nowrap; }
+        .toolbar-btn { width: auto; padding: 4px 8px; margin: 0; font-size: 0.65em; border-radius: 12px; opacity: 0.6; cursor: pointer; white-space: nowrap; flex-shrink: 0; }
         .toolbar-btn.active { opacity: 1; background: rgba(255, 216, 0, 0.12); border: 1px solid rgba(255, 216, 0, 0.25); }
 
         #loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10, 10, 12, 0.96); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
@@ -594,10 +594,10 @@
         function initScene() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0a0a0c);
-            scene.fog = new THREE.FogExp2(0x0a0a0c, 0.008);
+            scene.fog = new THREE.FogExp2(0x0a0a0c, 0.004);
 
             camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
-            camera.position.set(15, 10, 20);
+            camera.position.set(40, 25, 50);
 
             renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true, alpha: false });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -1087,7 +1087,7 @@
 
         function resetCamera() {
             controls.target.set(0, 0, 0);
-            camera.position.set(15, 10, 20);
+            camera.position.set(40, 25, 50);
             controls.update();
         }
 
