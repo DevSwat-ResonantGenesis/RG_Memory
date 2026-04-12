@@ -187,11 +187,13 @@
             <button class="btn-secondary" onclick="exportView()">📷 Screenshot</button>
 
             <h3>Legend</h3>
-            <div class="legend-item"><div class="legend-color" style="background:#FFD800"></div> Alpha Cluster</div>
-            <div class="legend-item"><div class="legend-color" style="background:#01A6BC"></div> Beta Cluster</div>
-            <div class="legend-item"><div class="legend-color" style="background:#71C23E"></div> Gamma Cluster</div>
-            <div class="legend-item"><div class="legend-color" style="background:#FA547C"></div> High Resonance</div>
-            <div class="legend-item"><div class="legend-color" style="background:#3a3a4a"></div> Low Resonance</div>
+            <div class="legend-item"><div class="legend-color" style="background:#FFD800"></div> α Alpha – Living</div>
+            <div class="legend-item"><div class="legend-color" style="background:#01A6BC"></div> β Beta – Inanimate</div>
+            <div class="legend-item"><div class="legend-color" style="background:#71C23E"></div> γ Gamma – Abstract</div>
+            <div class="legend-item"><div class="legend-color" style="background:#FA547C"></div> δ Delta – Actions</div>
+            <div class="legend-item"><div class="legend-color" style="background:#FAA525"></div> ε Epsilon – Qualities</div>
+            <div class="legend-item"><div class="legend-color" style="background:#8B5CF6"></div> ζ Zeta – Relations</div>
+            <div class="legend-item"><div class="legend-color" style="background:#555"></div> Unclustered</div>
         </div>
     </div>
 
@@ -208,9 +210,13 @@
             <div class="stat-row"><span class="stat-label">Total Memories</span><span class="stat-value info" id="s-total">—</span></div>
             <div class="stat-row"><span class="stat-label">Visible</span><span class="stat-value" id="s-visible">—</span></div>
             <div class="stat-row"><span class="stat-label">Connections</span><span class="stat-value" id="s-connections">—</span></div>
-            <div class="stat-row"><span class="stat-label">Alpha Cluster</span><span class="stat-value" style="color:#FFD800" id="s-alpha">—</span></div>
-            <div class="stat-row"><span class="stat-label">Beta Cluster</span><span class="stat-value" style="color:#01A6BC" id="s-beta">—</span></div>
-            <div class="stat-row"><span class="stat-label">Gamma Cluster</span><span class="stat-value" style="color:#71C23E" id="s-gamma">—</span></div>
+            <div class="stat-row"><span class="stat-label">α Alpha (Living)</span><span class="stat-value" style="color:#FFD800" id="s-alpha">—</span></div>
+            <div class="stat-row"><span class="stat-label">β Beta (Inanimate)</span><span class="stat-value" style="color:#01A6BC" id="s-beta">—</span></div>
+            <div class="stat-row"><span class="stat-label">γ Gamma (Abstract)</span><span class="stat-value" style="color:#71C23E" id="s-gamma">—</span></div>
+            <div class="stat-row"><span class="stat-label">δ Delta (Actions)</span><span class="stat-value" style="color:#FA547C" id="s-delta">—</span></div>
+            <div class="stat-row"><span class="stat-label">ε Epsilon (Qualities)</span><span class="stat-value" style="color:#FAA525" id="s-epsilon">—</span></div>
+            <div class="stat-row"><span class="stat-label">ζ Zeta (Relations)</span><span class="stat-value" style="color:#8B5CF6" id="s-zeta">—</span></div>
+            <div class="stat-row"><span class="stat-label">Unclustered</span><span class="stat-value" style="color:#555" id="s-unclust">—</span></div>
             <h3>Resonance</h3>
             <div class="stat-row"><span class="stat-label">Average</span><span class="stat-value success" id="s-avg-res">—</span></div>
             <div class="stat-row"><span class="stat-label">Max</span><span class="stat-value warning" id="s-max-res">—</span></div>
@@ -275,6 +281,35 @@
                 <input type="text" id="semantic-query" placeholder="Search by resonance...">
                 <button class="btn-success" onclick="searchByResonance()">🔍 Search</button>
                 <div id="search-result" class="result-box" style="display:none;"></div>
+            </div>
+
+            <h3>RAG Ask</h3>
+            <div class="control-group">
+                <input type="text" id="rag-question" placeholder="Ask your memories...">
+                <button class="btn-primary" onclick="ragAsk()">💬 Ask</button>
+                <div id="rag-result" class="result-box" style="display:none;"></div>
+            </div>
+
+            <h3>Ingest Memory</h3>
+            <div class="control-group">
+                <textarea id="ingest-content" rows="2" placeholder="Memory content..." style="width:100%;resize:vertical;background:rgba(20,20,26,0.8);border:1px solid rgba(255,255,255,0.06);border-radius:6px;color:#e0e0e8;font-size:0.8em;padding:5px 8px;"></textarea>
+                <select id="ingest-source" style="margin-top:2px;"><option value="chat">chat</option><option value="code">code</option><option value="note">note</option><option value="concept">concept</option><option value="insight">insight</option></select>
+                <button class="btn-success" onclick="ingestMemory()">➕ Ingest</button>
+                <div id="ingest-result" class="result-box" style="display:none;"></div>
+            </div>
+
+            <h3>Cluster Management</h3>
+            <div class="control-group">
+                <button class="btn-warning" onclick="computeClusters()">🧬 Compute Missing Clusters</button>
+                <button class="btn-secondary" onclick="clusterStats()">📊 Cluster Stats</button>
+                <div id="cluster-result" class="result-box" style="display:none;"></div>
+            </div>
+
+            <h3>Delete Memory</h3>
+            <div class="control-group">
+                <input type="text" id="delete-id" placeholder="Memory ID...">
+                <button class="btn-danger" onclick="deleteMemory()">🗑 Delete</button>
+                <div id="delete-result" class="result-box" style="display:none;"></div>
             </div>
         </div>
     </div>
@@ -357,7 +392,7 @@
         const API = getApiBaseUrl();
 
         // ─── Color helpers ───
-        const CLUSTER_COLORS = { alpha: 0xFFD800, beta: 0x01A6BC, gamma: 0x71C23E };
+        const CLUSTER_COLORS = { alpha: 0xFFD800, beta: 0x01A6BC, gamma: 0x71C23E, delta: 0xFA547C, epsilon: 0xFAA525, zeta: 0x8B5CF6, unclustered: 0x555555 };
         const TYPE_COLORS = { chat: 0xFFD800, code: 0xFAA525, function: 0x71C23E, pattern: 0x01A6BC, concept: 0xFA547C, decision: 0xFF5252, insight: 0x01A6BC, anchor: 0x71C23E };
 
         function getColor(mem) {
@@ -605,8 +640,12 @@
                 const normCluster = (name) => {
                     const s = String(name || '').toLowerCase();
                     if (s.includes('alpha')) return 'alpha';
+                    if (s.includes('beta')) return 'beta';
                     if (s.includes('gamma')) return 'gamma';
-                    return 'beta';
+                    if (s.includes('delta')) return 'delta';
+                    if (s.includes('epsilon')) return 'epsilon';
+                    if (s.includes('zeta')) return 'zeta';
+                    return 'unclustered';
                 };
 
                 memories = (Array.isArray(data) ? data : []).map(m => ({
@@ -776,6 +815,10 @@
             document.getElementById('s-alpha').textContent = mems.filter(m => m.cluster === 'alpha').length;
             document.getElementById('s-beta').textContent = mems.filter(m => m.cluster === 'beta').length;
             document.getElementById('s-gamma').textContent = mems.filter(m => m.cluster === 'gamma').length;
+            document.getElementById('s-delta').textContent = mems.filter(m => m.cluster === 'delta').length;
+            document.getElementById('s-epsilon').textContent = mems.filter(m => m.cluster === 'epsilon').length;
+            document.getElementById('s-zeta').textContent = mems.filter(m => m.cluster === 'zeta').length;
+            document.getElementById('s-unclust').textContent = mems.filter(m => m.cluster === 'unclustered').length;
 
             const avgRes = mems.reduce((s, m) => s + m.resonance, 0) / n;
             const maxRes = Math.max(...mems.map(m => m.resonance));
@@ -1072,6 +1115,106 @@
                     document.getElementById('pgv-rows').textContent = (pgv.total_rows || pgv.row_count || 0).toLocaleString();
                 }
             } catch (e) {}
+        }
+
+        // ─── Tools: RAG Ask ───
+        async function ragAsk() {
+            const q = document.getElementById('rag-question').value.trim();
+            if (!q) return;
+            const box = document.getElementById('rag-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Thinking...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/rag/ask`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: q, limit: 5 })
+                });
+                const d = await res.json();
+                let html = `<span class="val">Answer:</span><br>${d.answer || d.response || 'No answer'}<br>`;
+                if (d.sources && d.sources.length) {
+                    html += `<br><span class="val">Sources (${d.sources.length}):</span><br>`;
+                    d.sources.forEach(s => { html += `<div style="font-size:0.8em;color:#888;border-bottom:1px solid rgba(255,255,255,0.04);padding:2px 0;">${(s.content || s.text || '').substring(0, 60)}...</div>`; });
+                }
+                box.innerHTML = html;
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── Tools: Ingest Memory ───
+        async function ingestMemory() {
+            const content = document.getElementById('ingest-content').value.trim();
+            const source = document.getElementById('ingest-source').value;
+            if (!content) return;
+            const box = document.getElementById('ingest-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Ingesting...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/ingest`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content, source, generate_embedding: true })
+                });
+                const d = await res.json();
+                box.innerHTML = `<span class="val">✅ Ingested</span><br>ID: ${d.id || '?'}<br>Hash: ${(d.hash || '').substring(0, 20)}...`;
+                document.getElementById('ingest-content').value = '';
+                // Reload to show the new memory
+                setTimeout(() => loadMemories(), 500);
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── Tools: Compute Clusters ───
+        async function computeClusters() {
+            const box = document.getElementById('cluster-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Computing clusters...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/clusters/compute`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const d = await res.json();
+                box.innerHTML = `<span class="val">✅ Updated:</span> ${d.updated || 0}<br><span class="val">Errors:</span> ${d.errors || 0}<br><span class="val">Remaining:</span> ${d.remaining || 0}`;
+                if (d.updated > 0) setTimeout(() => loadMemories(), 500);
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── Tools: Cluster Stats ───
+        async function clusterStats() {
+            const box = document.getElementById('cluster-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Loading...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/clusters/stats`, { credentials: 'include' });
+                const d = await res.json();
+                let html = `<span class="val">Clustered:</span> ${d.total_clustered || 0} | <span class="val">Unclustered:</span> ${d.total_unclustered || 0}<br>`;
+                (d.clusters || []).forEach(c => {
+                    html += `<div style="display:flex;justify-content:space-between;padding:1px 0;"><span>${c.name}</span><span class="val">${c.count}</span></div>`;
+                });
+                box.innerHTML = html;
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── Tools: Delete Memory ───
+        async function deleteMemory() {
+            const id = document.getElementById('delete-id').value.trim();
+            if (!id) return;
+            const box = document.getElementById('delete-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Deleting...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/${id}`, {
+                    method: 'DELETE', credentials: 'include'
+                });
+                if (res.ok) {
+                    box.innerHTML = '<span class="val">✅ Deleted</span>';
+                    document.getElementById('delete-id').value = '';
+                    setTimeout(() => loadMemories(), 500);
+                } else {
+                    const d = await res.json();
+                    box.innerHTML = 'Failed: ' + (d.detail || d.error || res.status);
+                }
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
         }
 
         // ─── Init ───
