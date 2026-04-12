@@ -29,6 +29,12 @@
         #memory-list-panel { bottom: 10px; left: 220px; width: 200px; max-height: 35vh; overflow-y: auto; display: none; }
         #tools-panel { top: 50px; left: 220px; width: 240px; max-height: calc(100vh - 70px); overflow-y: auto; display: none; }
         #system-panel { bottom: 10px; right: 220px; width: 220px; display: none; }
+        #data-panel { top: 50px; left: 470px; width: 260px; max-height: calc(100vh - 70px); overflow-y: auto; display: none; }
+        #rag-panel { top: 50px; right: 230px; width: 260px; max-height: calc(100vh - 70px); overflow-y: auto; display: none; }
+        #archive-panel { bottom: 10px; left: 430px; width: 240px; max-height: 50vh; overflow-y: auto; display: none; }
+        .tab-bar { display: flex; gap: 2px; margin-bottom: 6px; }
+        .tab-bar button { flex:1; padding:3px 0; font-size:0.7em; border-radius:6px; }
+        .tab-bar button.active { background:rgba(255,216,0,0.12); border-color:rgba(255,216,0,0.25); color:#FFD800; }
         .result-box { padding: 6px 8px; margin-top: 6px; background: rgba(14,14,18,0.7); border-radius: 6px; border-left: 3px solid rgba(255,216,0,0.3); font-size: 0.85em; max-height: 120px; overflow-y: auto; word-break: break-all; color: #a0a0b0; line-height: 1.5; }
         .result-box .val { color: #FFD800; font-weight: 600; }
 
@@ -102,6 +108,14 @@
         .cluster-alpha { background: rgba(255, 216, 0, 0.12); color: #FFD800; }
         .cluster-beta { background: rgba(1, 166, 188, 0.12); color: #01A6BC; }
         .cluster-gamma { background: rgba(113, 194, 62, 0.12); color: #71C23E; }
+        .cluster-delta { background: rgba(250, 84, 124, 0.12); color: #FA547C; }
+        .cluster-epsilon { background: rgba(250, 165, 37, 0.12); color: #FAA525; }
+        .cluster-zeta { background: rgba(139, 92, 246, 0.12); color: #8B5CF6; }
+        .cluster-unclustered { background: rgba(85, 85, 85, 0.12); color: #555; }
+        .list-item { padding:4px 6px; margin:2px 0; background:rgba(14,14,18,0.6); border-radius:4px; border-left:2px solid rgba(255,255,255,0.06); font-size:0.8em; cursor:pointer; }
+        .list-item:hover { border-left-color:#FFD800; background:rgba(255,216,0,0.04); }
+        .list-item .li-title { color:#c0c0c8; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .list-item .li-meta { color:#666; font-size:0.85em; }
     </style>
 </head>
 <body>
@@ -131,6 +145,9 @@
         <button class="toolbar-btn" onclick="togglePanel('info-panel')">🔍 Detail</button>
         <button class="toolbar-btn" onclick="togglePanel('memory-list-panel')">📋 List</button>
         <button class="toolbar-btn" onclick="togglePanel('tools-panel')">🔧 Tools</button>
+        <button class="toolbar-btn" onclick="togglePanel('data-panel')">🔎 Data</button>
+        <button class="toolbar-btn" onclick="togglePanel('rag-panel')">💬 RAG</button>
+        <button class="toolbar-btn" onclick="togglePanel('archive-panel')">📦 Archive</button>
         <button class="toolbar-btn" onclick="togglePanel('system-panel')">⚡ System</button>
         <button class="toolbar-btn" onclick="resetCamera()">🎯 Reset</button>
     </div>
@@ -340,6 +357,156 @@
             <div class="stat-row"><span class="stat-label">Available</span><span class="stat-value" id="pgv-available">—</span></div>
             <div class="stat-row"><span class="stat-label">Rows</span><span class="stat-value info" id="pgv-rows">—</span></div>
             <button class="btn-secondary" style="margin-top:6px;" onclick="loadSystemStatus()">🔄 Refresh</button>
+        </div>
+    </div>
+
+    <!-- Data Panel: Retrieve, Search, Extract, Projects -->
+    <div class="panel" id="data-panel">
+        <div class="panel-header" onmousedown="startDrag(event, 'data-panel')">
+            <h2>🔎 Data Operations</h2>
+            <div class="panel-controls">
+                <button class="panel-btn minimize" onclick="minimizePanel('data-panel')">−</button>
+                <button class="panel-btn close" onclick="hidePanel('data-panel')">×</button>
+            </div>
+        </div>
+        <div class="panel-content">
+            <h3>Retrieve Memories</h3>
+            <div class="control-group">
+                <input type="text" id="retrieve-query" placeholder="Query text...">
+                <input type="number" id="retrieve-limit" value="10" min="1" max="100" style="width:60px;display:inline;">
+                <button class="btn-primary" onclick="retrieveMemories()">🔍 Retrieve</button>
+                <div id="retrieve-result" class="result-box" style="display:none;max-height:160px;"></div>
+            </div>
+
+            <h3>Vector Search</h3>
+            <div class="control-group">
+                <input type="text" id="vsearch-query" placeholder="Semantic search query...">
+                <select id="vsearch-mode"><option value="hybrid">Hybrid</option><option value="vector">Vector Only</option><option value="text">Text Only</option></select>
+                <button class="btn-success" onclick="vectorSearch()">🧠 Search</button>
+                <div id="vsearch-result" class="result-box" style="display:none;max-height:160px;"></div>
+            </div>
+
+            <h3>Hash Sphere Extract</h3>
+            <div class="control-group">
+                <textarea id="extract-text" rows="2" placeholder="Text to extract coordinates..." style="width:100%;resize:vertical;background:rgba(20,20,26,0.8);border:1px solid rgba(255,255,255,0.06);border-radius:6px;color:#e0e0e8;font-size:0.8em;padding:5px 8px;"></textarea>
+                <button class="btn-warning" onclick="extractCoords()">🌐 Extract Coordinates</button>
+                <div id="extract-result" class="result-box" style="display:none;"></div>
+            </div>
+
+            <h3>Projects</h3>
+            <div class="control-group">
+                <button class="btn-secondary" onclick="listProjects()">📁 List Projects</button>
+                <div id="projects-result" class="result-box" style="display:none;max-height:140px;"></div>
+            </div>
+
+            <h3>Project Files</h3>
+            <div class="control-group">
+                <input type="text" id="proj-id" placeholder="Project ID...">
+                <button class="btn-secondary" onclick="listProjectFiles()">📄 Get Files</button>
+                <div id="projfiles-result" class="result-box" style="display:none;max-height:140px;"></div>
+            </div>
+
+            <h3>Memory Stats</h3>
+            <div class="control-group">
+                <button class="btn-secondary" onclick="memoryStats()">📊 Full Stats</button>
+                <div id="memstats-result" class="result-box" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- RAG Panel: Memories CRUD, Conversations, File Upload, Universe -->
+    <div class="panel" id="rag-panel">
+        <div class="panel-header" onmousedown="startDrag(event, 'rag-panel')">
+            <h2>💬 RAG Manager</h2>
+            <div class="panel-controls">
+                <button class="panel-btn minimize" onclick="minimizePanel('rag-panel')">−</button>
+                <button class="panel-btn close" onclick="hidePanel('rag-panel')">×</button>
+            </div>
+        </div>
+        <div class="panel-content">
+            <h3>RAG Memories</h3>
+            <div class="control-group">
+                <button class="btn-primary" onclick="listRagMemories()">📋 List Memories</button>
+                <div id="rag-memories-list" class="result-box" style="display:none;max-height:160px;"></div>
+            </div>
+            <div class="control-group">
+                <textarea id="rag-mem-content" rows="2" placeholder="Create new RAG memory..." style="width:100%;resize:vertical;background:rgba(20,20,26,0.8);border:1px solid rgba(255,255,255,0.06);border-radius:6px;color:#e0e0e8;font-size:0.8em;padding:5px 8px;"></textarea>
+                <div style="display:flex;gap:4px;">
+                    <label style="font-size:0.7em;display:flex;align-items:center;gap:2px;color:#888;"><input type="checkbox" id="rag-mem-shared" style="width:auto;margin:0;"> Shared</label>
+                    <label style="font-size:0.7em;display:flex;align-items:center;gap:2px;color:#888;"><input type="checkbox" id="rag-mem-public" style="width:auto;margin:0;"> Public</label>
+                </div>
+                <button class="btn-success" onclick="createRagMemory()">➕ Create</button>
+                <div id="rag-create-result" class="result-box" style="display:none;"></div>
+            </div>
+
+            <h3>Update / Delete RAG Memory</h3>
+            <div class="control-group">
+                <input type="text" id="rag-mem-id" placeholder="Memory ID...">
+                <textarea id="rag-mem-update" rows="2" placeholder="Updated content (for update)..." style="width:100%;resize:vertical;background:rgba(20,20,26,0.8);border:1px solid rgba(255,255,255,0.06);border-radius:6px;color:#e0e0e8;font-size:0.8em;padding:5px 8px;"></textarea>
+                <div style="display:flex;gap:4px;">
+                    <button class="btn-warning" style="flex:1;" onclick="updateRagMemory()">✏️ Update</button>
+                    <button class="btn-danger" style="flex:1;" onclick="deleteRagMemory()">🗑 Delete</button>
+                </div>
+                <div id="rag-ud-result" class="result-box" style="display:none;"></div>
+            </div>
+
+            <h3>Conversations</h3>
+            <div class="control-group">
+                <button class="btn-secondary" onclick="listConversations()">💬 List Conversations</button>
+                <div id="conv-list" class="result-box" style="display:none;max-height:140px;"></div>
+            </div>
+            <div class="control-group">
+                <input type="text" id="conv-del-id" placeholder="Conversation ID to delete...">
+                <button class="btn-danger" onclick="deleteConversation()">🗑 Delete Conversation</button>
+                <div id="conv-del-result" class="result-box" style="display:none;"></div>
+            </div>
+
+            <h3>File Upload</h3>
+            <div class="control-group">
+                <input type="file" id="rag-file-input" style="font-size:0.75em;">
+                <button class="btn-primary" onclick="uploadRagFile()">📤 Upload</button>
+                <div id="rag-upload-result" class="result-box" style="display:none;"></div>
+            </div>
+
+            <h3>Memory Universe (3D)</h3>
+            <div class="control-group">
+                <button class="btn-warning" onclick="loadUniverse()">🌌 Load Universe Data</button>
+                <div id="universe-result" class="result-box" style="display:none;max-height:100px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Archive Panel -->
+    <div class="panel" id="archive-panel">
+        <div class="panel-header" onmousedown="startDrag(event, 'archive-panel')">
+            <h2>📦 File Archive</h2>
+            <div class="panel-controls">
+                <button class="panel-btn minimize" onclick="minimizePanel('archive-panel')">−</button>
+                <button class="panel-btn close" onclick="hidePanel('archive-panel')">×</button>
+            </div>
+        </div>
+        <div class="panel-content">
+            <h3>Archive File</h3>
+            <div class="control-group">
+                <input type="text" id="archive-path" placeholder="File path to archive...">
+                <input type="text" id="archive-project" placeholder="Project ID (optional)...">
+                <button class="btn-primary" onclick="archiveFile()">📥 Archive</button>
+                <div id="archive-result" class="result-box" style="display:none;"></div>
+            </div>
+
+            <h3>Unarchive File</h3>
+            <div class="control-group">
+                <input type="text" id="unarchive-path" placeholder="File path to restore...">
+                <button class="btn-warning" onclick="unarchiveFile()">📤 Unarchive</button>
+                <div id="unarchive-result" class="result-box" style="display:none;"></div>
+            </div>
+
+            <h3>Archived Files</h3>
+            <div class="control-group">
+                <input type="text" id="archived-project-id" placeholder="Project ID (optional)...">
+                <button class="btn-secondary" onclick="listArchivedFiles()">📋 List Archived</button>
+                <div id="archived-list" class="result-box" style="display:none;max-height:160px;"></div>
+            </div>
         </div>
     </div>
 
@@ -1214,6 +1381,387 @@
                     const d = await res.json();
                     box.innerHTML = 'Failed: ' + (d.detail || d.error || res.status);
                 }
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ═══════════════════════════════════════════
+        // DATA PANEL FUNCTIONS
+        // ═══════════════════════════════════════════
+
+        // ─── Retrieve Memories (POST /memory/retrieve) ───
+        async function retrieveMemories() {
+            const q = document.getElementById('retrieve-query').value.trim();
+            const limit = parseInt(document.getElementById('retrieve-limit').value) || 10;
+            if (!q) return;
+            const box = document.getElementById('retrieve-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Retrieving...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/retrieve`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: q, limit, generate_embedding: true })
+                });
+                const data = await res.json();
+                const items = Array.isArray(data) ? data : (data.results || []);
+                if (!items.length) { box.innerHTML = 'No results.'; return; }
+                box.innerHTML = items.map(m =>
+                    `<div class="list-item" onclick="document.getElementById('delete-id').value='${m.id}'">
+                        <div class="li-title">${(m.content || '').substring(0, 50)}...</div>
+                        <div class="li-meta">res:${(m.resonance_score || 0).toFixed(3)} | ${m.source || 'chat'} | ${m.id?.substring(0,8)}</div>
+                    </div>`
+                ).join('');
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── Vector Search (POST /memory/search) ───
+        async function vectorSearch() {
+            const q = document.getElementById('vsearch-query').value.trim();
+            const mode = document.getElementById('vsearch-mode').value;
+            if (!q) return;
+            const box = document.getElementById('vsearch-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Searching...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/search`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: q, search_mode: mode, limit: 10 })
+                });
+                const data = await res.json();
+                const items = data.results || (Array.isArray(data) ? data : []);
+                if (!items.length) { box.innerHTML = 'No results.'; return; }
+                box.innerHTML = items.map(m =>
+                    `<div class="list-item">
+                        <div class="li-title">${(m.content || m.text || '').substring(0, 50)}...</div>
+                        <div class="li-meta">score:${(m.score || m.similarity || 0).toFixed(3)} | ${m.source || ''}</div>
+                    </div>`
+                ).join('');
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── Hash Sphere Extract (POST /memory/hash-sphere/extract) ───
+        async function extractCoords() {
+            const text = document.getElementById('extract-text').value.trim();
+            if (!text) return;
+            const box = document.getElementById('extract-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Extracting...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/hash-sphere/extract`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                const d = await res.json();
+                let html = '<span class="val">Coordinates:</span><br>';
+                html += `XYZ: (${(d.xyz_x || d.x || 0).toFixed(4)}, ${(d.xyz_y || d.y || 0).toFixed(4)}, ${(d.xyz_z || d.z || 0).toFixed(4)})<br>`;
+                html += `Sphere: r=${(d.sphere_r || d.r || 0).toFixed(4)} φ=${(d.sphere_phi || d.phi || 0).toFixed(4)} θ=${(d.sphere_theta || d.theta || 0).toFixed(4)}<br>`;
+                if (d.hash) html += `Hash: ${d.hash.substring(0, 20)}...<br>`;
+                if (d.cluster_name) html += `Cluster: <span class="val">${d.cluster_name}</span><br>`;
+                if (d.resonance_score != null) html += `Resonance: <span class="val">${d.resonance_score.toFixed(4)}</span>`;
+                box.innerHTML = html;
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── List Projects (GET /memory/projects) ───
+        async function listProjects() {
+            const box = document.getElementById('projects-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Loading...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/projects`, { credentials: 'include' });
+                const d = await res.json();
+                const projects = d.projects || (Array.isArray(d) ? d : []);
+                if (!projects.length) { box.innerHTML = 'No projects found.'; return; }
+                box.innerHTML = projects.map(p =>
+                    `<div class="list-item" onclick="document.getElementById('proj-id').value='${p.id || p.project_id || ''}'">
+                        <div class="li-title">${p.name || p.project_name || p.id || 'Unnamed'}</div>
+                        <div class="li-meta">${p.file_count || 0} files | ${p.id?.substring(0,8) || ''}</div>
+                    </div>`
+                ).join('');
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── Project Files (GET /memory/project/files) ───
+        async function listProjectFiles() {
+            const pid = document.getElementById('proj-id').value.trim();
+            if (!pid) return;
+            const box = document.getElementById('projfiles-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Loading...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/project/files?project_id=${encodeURIComponent(pid)}`, { credentials: 'include' });
+                const d = await res.json();
+                const files = d.files || (Array.isArray(d) ? d : []);
+                if (!files.length) { box.innerHTML = 'No files found.'; return; }
+                box.innerHTML = files.map(f =>
+                    `<div class="list-item">
+                        <div class="li-title">${f.file_path || f.filename || f.path || 'Unknown'}</div>
+                        <div class="li-meta">${f.language || ''} | ${f.size_bytes ? (f.size_bytes/1024).toFixed(1)+'KB' : ''}</div>
+                    </div>`
+                ).join('');
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── Memory Stats (GET /memory/stats) ───
+        async function memoryStats() {
+            const box = document.getElementById('memstats-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Loading...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/stats`, { credentials: 'include' });
+                const d = await res.json();
+                let html = '';
+                for (const [k, v] of Object.entries(d)) {
+                    html += `<div style="display:flex;justify-content:space-between;padding:1px 0;"><span style="color:#888;">${k}</span><span class="val">${typeof v === 'number' ? v.toLocaleString() : v}</span></div>`;
+                }
+                box.innerHTML = html || 'No stats returned.';
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ═══════════════════════════════════════════
+        // RAG PANEL FUNCTIONS
+        // ═══════════════════════════════════════════
+
+        // ─── List RAG Memories (GET /memory/rag/memories) ───
+        async function listRagMemories() {
+            const box = document.getElementById('rag-memories-list');
+            box.style.display = 'block';
+            box.innerHTML = 'Loading...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/rag/memories?limit=50`, { credentials: 'include' });
+                const data = await res.json();
+                const items = Array.isArray(data) ? data : (data.results || []);
+                if (!items.length) { box.innerHTML = 'No RAG memories.'; return; }
+                box.innerHTML = items.map(m =>
+                    `<div class="list-item" onclick="document.getElementById('rag-mem-id').value='${m.id}'">
+                        <div class="li-title">${(m.content || '').substring(0, 50)}...</div>
+                        <div class="li-meta">${m.is_public ? '🌐' : '🔒'} ${m.is_shared ? '👥' : ''} | ${m.id?.substring(0,8)}</div>
+                    </div>`
+                ).join('');
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── Create RAG Memory (POST /memory/rag/memories) ───
+        async function createRagMemory() {
+            const content = document.getElementById('rag-mem-content').value.trim();
+            if (!content) return;
+            const is_shared = document.getElementById('rag-mem-shared').checked;
+            const is_public = document.getElementById('rag-mem-public').checked;
+            const box = document.getElementById('rag-create-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Creating...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/rag/memories`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content, is_shared, is_public })
+                });
+                const d = await res.json();
+                box.innerHTML = `<span class="val">✅ Created</span><br>ID: ${d.id || '?'}`;
+                document.getElementById('rag-mem-content').value = '';
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── Update RAG Memory (PUT /memory/rag/memories/{id}) ───
+        async function updateRagMemory() {
+            const id = document.getElementById('rag-mem-id').value.trim();
+            const content = document.getElementById('rag-mem-update').value.trim();
+            if (!id || !content) return;
+            const box = document.getElementById('rag-ud-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Updating...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/rag/memories/${id}`, {
+                    method: 'PUT', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ content })
+                });
+                if (res.ok) {
+                    const d = await res.json();
+                    box.innerHTML = `<span class="val">✅ Updated</span><br>${(d.content || '').substring(0, 40)}...`;
+                } else {
+                    const d = await res.json().catch(() => ({}));
+                    box.innerHTML = 'Failed: ' + (d.detail || res.status);
+                }
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── Delete RAG Memory (DELETE /memory/rag/memories/{id}) ───
+        async function deleteRagMemory() {
+            const id = document.getElementById('rag-mem-id').value.trim();
+            if (!id) return;
+            const box = document.getElementById('rag-ud-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Deleting...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/rag/memories/${id}`, {
+                    method: 'DELETE', credentials: 'include'
+                });
+                if (res.ok) {
+                    box.innerHTML = '<span class="val">✅ Deleted</span>';
+                    document.getElementById('rag-mem-id').value = '';
+                } else {
+                    const d = await res.json().catch(() => ({}));
+                    box.innerHTML = 'Failed: ' + (d.detail || res.status);
+                }
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── List Conversations (GET /memory/rag/conversations) ───
+        async function listConversations() {
+            const box = document.getElementById('conv-list');
+            box.style.display = 'block';
+            box.innerHTML = 'Loading...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/rag/conversations?limit=50`, { credentials: 'include' });
+                const data = await res.json();
+                const items = Array.isArray(data) ? data : (data.conversations || []);
+                if (!items.length) { box.innerHTML = 'No conversations.'; return; }
+                box.innerHTML = items.map(c =>
+                    `<div class="list-item" onclick="document.getElementById('conv-del-id').value='${c.id || c.conversation_id || ''}'">
+                        <div class="li-title">${c.title || c.id?.substring(0,12) || 'Conversation'}</div>
+                        <div class="li-meta">${c.message_count || 0} msgs | ${c.created_at ? new Date(c.created_at).toLocaleDateString() : ''}</div>
+                    </div>`
+                ).join('');
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── Delete Conversation (DELETE /memory/rag/conversations/{id}) ───
+        async function deleteConversation() {
+            const id = document.getElementById('conv-del-id').value.trim();
+            if (!id) return;
+            const box = document.getElementById('conv-del-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Deleting...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/rag/conversations/${id}`, {
+                    method: 'DELETE', credentials: 'include'
+                });
+                if (res.ok) {
+                    box.innerHTML = '<span class="val">✅ Deleted</span>';
+                    document.getElementById('conv-del-id').value = '';
+                } else {
+                    const d = await res.json().catch(() => ({}));
+                    box.innerHTML = 'Failed: ' + (d.detail || res.status);
+                }
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── Upload RAG File (POST /memory/rag/files/upload) ───
+        async function uploadRagFile() {
+            const fileInput = document.getElementById('rag-file-input');
+            if (!fileInput.files.length) return;
+            const box = document.getElementById('rag-upload-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Uploading...';
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                const res = await fetch(`${API}/api/v1/memory/rag/files/upload`, {
+                    method: 'POST', credentials: 'include',
+                    body: formData
+                });
+                const d = await res.json();
+                if (res.ok) {
+                    box.innerHTML = `<span class="val">✅ Uploaded</span><br>${d.filename || ''} (${d.size ? (d.size/1024).toFixed(1)+'KB' : ''})`;
+                    fileInput.value = '';
+                } else {
+                    box.innerHTML = 'Failed: ' + (d.detail || d.error || res.status);
+                }
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── Load Universe (GET /memory/rag/universe) ───
+        async function loadUniverse() {
+            const box = document.getElementById('universe-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Loading universe...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/rag/universe`, { credentials: 'include' });
+                const d = await res.json();
+                const s = d.stats || {};
+                let html = `<span class="val">Nodes:</span> ${(d.nodes || []).length}<br>`;
+                html += `<span class="val">Edges:</span> ${(d.edges || []).length}<br>`;
+                html += `<span class="val">Clusters:</span> ${(d.clusters || []).length}<br>`;
+                if (s.total_memories) html += `Total: ${s.total_memories} | Storage: ${s.storage_mb || 0}MB`;
+                box.innerHTML = html;
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ═══════════════════════════════════════════
+        // ARCHIVE PANEL FUNCTIONS
+        // ═══════════════════════════════════════════
+
+        // ─── Archive File (POST /memory/archive/file) ───
+        async function archiveFile() {
+            const path = document.getElementById('archive-path').value.trim();
+            if (!path) return;
+            const project = document.getElementById('archive-project').value.trim();
+            const box = document.getElementById('archive-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Archiving...';
+            try {
+                const body = { file_path: path };
+                if (project) body.project_id = project;
+                const res = await fetch(`${API}/api/v1/memory/archive/file`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body)
+                });
+                const d = await res.json();
+                if (res.ok) {
+                    box.innerHTML = `<span class="val">✅ Archived</span><br>${d.file_path || path}<br>Hash: ${(d.hash || '').substring(0,16)}...`;
+                    document.getElementById('archive-path').value = '';
+                } else {
+                    box.innerHTML = 'Failed: ' + (d.detail || d.error || res.status);
+                }
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── Unarchive File (POST /memory/unarchive/file) ───
+        async function unarchiveFile() {
+            const path = document.getElementById('unarchive-path').value.trim();
+            if (!path) return;
+            const box = document.getElementById('unarchive-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Unarchiving...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/unarchive/file`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ file_path: path })
+                });
+                const d = await res.json();
+                if (res.ok) {
+                    box.innerHTML = `<span class="val">✅ Restored</span><br>${d.file_path || path}`;
+                    document.getElementById('unarchive-path').value = '';
+                } else {
+                    box.innerHTML = 'Failed: ' + (d.detail || d.error || res.status);
+                }
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── List Archived Files (GET /memory/archived/files) ───
+        async function listArchivedFiles() {
+            const pid = document.getElementById('archived-project-id').value.trim();
+            const box = document.getElementById('archived-list');
+            box.style.display = 'block';
+            box.innerHTML = 'Loading...';
+            try {
+                let url = `${API}/api/v1/memory/archived/files`;
+                if (pid) url += `?project_id=${encodeURIComponent(pid)}`;
+                const res = await fetch(url, { credentials: 'include' });
+                const d = await res.json();
+                const files = d.archived_files || d.files || (Array.isArray(d) ? d : []);
+                if (!files.length) { box.innerHTML = 'No archived files.'; return; }
+                box.innerHTML = files.map(f => {
+                    const name = typeof f === 'string' ? f : (f.file_path || f.filename || f.path || 'Unknown');
+                    return `<div class="list-item" onclick="document.getElementById('unarchive-path').value='${name}'">
+                        <div class="li-title">${name}</div>
+                    </div>`;
+                }).join('');
             } catch (e) { box.innerHTML = 'Error: ' + e.message; }
         }
 
