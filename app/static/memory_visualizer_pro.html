@@ -27,6 +27,10 @@
         #stats-panel { bottom: 10px; right: 10px; width: 200px; display: none; }
         #info-panel { top: 50px; right: 10px; width: 220px; max-height: 45vh; overflow-y: auto; display: none; }
         #memory-list-panel { bottom: 10px; left: 220px; width: 200px; max-height: 35vh; overflow-y: auto; display: none; }
+        #tools-panel { top: 50px; left: 220px; width: 240px; max-height: calc(100vh - 70px); overflow-y: auto; display: none; }
+        #system-panel { bottom: 10px; right: 220px; width: 220px; display: none; }
+        .result-box { padding: 6px 8px; margin-top: 6px; background: rgba(14,14,18,0.7); border-radius: 6px; border-left: 3px solid rgba(255,216,0,0.3); font-size: 0.85em; max-height: 120px; overflow-y: auto; word-break: break-all; color: #a0a0b0; line-height: 1.5; }
+        .result-box .val { color: #FFD800; font-weight: 600; }
 
         h3 { color: #888; margin: 6px 0 4px; font-size: 0.85em; }
         .control-group { margin-bottom: 8px; }
@@ -126,6 +130,8 @@
         <button class="toolbar-btn" onclick="togglePanel('stats-panel')">📊 Stats</button>
         <button class="toolbar-btn" onclick="togglePanel('info-panel')">🔍 Detail</button>
         <button class="toolbar-btn" onclick="togglePanel('memory-list-panel')">📋 List</button>
+        <button class="toolbar-btn" onclick="togglePanel('tools-panel')">🔧 Tools</button>
+        <button class="toolbar-btn" onclick="togglePanel('system-panel')">⚡ System</button>
         <button class="toolbar-btn" onclick="resetCamera()">🎯 Reset</button>
     </div>
 
@@ -160,8 +166,8 @@
             </div>
 
             <div class="control-group">
-                <label>Connection Distance: <span id="conn-val">3.0</span></label>
-                <input type="range" id="conn-dist" min="0" max="10" step="0.5" value="3.0" oninput="updateConnections(this.value)">
+                <label>Connection Distance: <span id="conn-val">6.0</span></label>
+                <input type="range" id="conn-dist" min="0" max="20" step="0.5" value="6.0" oninput="updateConnections(this.value)">
             </div>
 
             <div class="control-group">
@@ -237,6 +243,71 @@
         </div>
     </div>
 
+    <!-- Tools Panel -->
+    <div class="panel" id="tools-panel">
+        <div class="panel-header" onmousedown="startDrag(event, 'tools-panel')">
+            <h2>🔧 Hash Sphere Tools</h2>
+            <div class="panel-controls">
+                <button class="panel-btn minimize" onclick="minimizePanel('tools-panel')">−</button>
+                <button class="panel-btn close" onclick="hidePanel('tools-panel')">×</button>
+            </div>
+        </div>
+        <div class="panel-content">
+            <h3>Hash Text</h3>
+            <div class="control-group">
+                <input type="text" id="hash-input" placeholder="Enter text to hash...">
+                <button class="btn-primary" onclick="hashText()">⚡ Compute Hash</button>
+                <div id="hash-result" class="result-box" style="display:none;"></div>
+            </div>
+
+            <h3>Resonance Calculator</h3>
+            <div class="control-group">
+                <label style="font-size:0.75em;color:#888;">Hash 1</label>
+                <input type="text" id="res-hash1" placeholder="First hash...">
+                <label style="font-size:0.75em;color:#888;">Hash 2</label>
+                <input type="text" id="res-hash2" placeholder="Second hash...">
+                <button class="btn-warning" onclick="calcResonance()">🌀 Calculate Resonance</button>
+                <div id="resonance-result" class="result-box" style="display:none;"></div>
+            </div>
+
+            <h3>Semantic Search</h3>
+            <div class="control-group">
+                <input type="text" id="semantic-query" placeholder="Search by resonance...">
+                <button class="btn-success" onclick="searchByResonance()">🔍 Search</button>
+                <div id="search-result" class="result-box" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Panel -->
+    <div class="panel" id="system-panel">
+        <div class="panel-header" onmousedown="startDrag(event, 'system-panel')">
+            <h2>⚡ System Status</h2>
+            <div class="panel-controls">
+                <button class="panel-btn minimize" onclick="minimizePanel('system-panel')">−</button>
+                <button class="panel-btn close" onclick="hidePanel('system-panel')">×</button>
+            </div>
+        </div>
+        <div class="panel-content">
+            <h3>Encryption</h3>
+            <div class="stat-row"><span class="stat-label">Status</span><span class="stat-value" id="enc-status">—</span></div>
+            <div class="stat-row"><span class="stat-label">Algorithm</span><span class="stat-value" id="enc-algo">—</span></div>
+            <h3>Performance</h3>
+            <div class="stat-row"><span class="stat-label">Total Ingests</span><span class="stat-value info" id="perf-ingests">—</span></div>
+            <div class="stat-row"><span class="stat-label">Total Retrievals</span><span class="stat-value" id="perf-retrievals">—</span></div>
+            <div class="stat-row"><span class="stat-label">Avg Retrieval</span><span class="stat-value success" id="perf-avg-ret">—</span></div>
+            <div class="stat-row"><span class="stat-label">Cache Hit Rate</span><span class="stat-value warning" id="perf-cache-hit">—</span></div>
+            <h3>Embedding Cache</h3>
+            <div class="stat-row"><span class="stat-label">Size</span><span class="stat-value" id="emb-cache-size">—</span></div>
+            <div class="stat-row"><span class="stat-label">Hits</span><span class="stat-value success" id="emb-cache-hits">—</span></div>
+            <div class="stat-row"><span class="stat-label">Misses</span><span class="stat-value" id="emb-cache-misses">—</span></div>
+            <h3>PGVector</h3>
+            <div class="stat-row"><span class="stat-label">Available</span><span class="stat-value" id="pgv-available">—</span></div>
+            <div class="stat-row"><span class="stat-label">Rows</span><span class="stat-value info" id="pgv-rows">—</span></div>
+            <button class="btn-secondary" style="margin-top:6px;" onclick="loadSystemStatus()">🔄 Refresh</button>
+        </div>
+    </div>
+
     <!-- Memory List Panel -->
     <div class="panel" id="memory-list-panel">
         <div class="panel-header" onmousedown="startDrag(event, 'memory-list-panel')">
@@ -271,7 +342,7 @@
         let showSpins = false;
         let viewMode = 'sphere';
         let colorMode = 'cluster';
-        let connectionDist = 3.0;
+        let connectionDist = 6.0;
         let minResonanceFilter = 0;
         let dragPanel = null, dragOffset = { x: 0, y: 0 };
         let animationId;
@@ -599,13 +670,13 @@
             connectionLines = [];
             spinArrows = [];
 
-            const scaleFactor = 10;
+            const scaleFactor = 22;
 
             filteredMemories.forEach((mem, i) => {
                 const size = getSize(mem);
                 const color = getColor(mem);
 
-                const geo = new THREE.SphereGeometry(size * 0.12, 16, 16);
+                const geo = new THREE.SphereGeometry(size * 0.06, 12, 12);
                 const mat = new THREE.MeshStandardMaterial({
                     color: color,
                     emissive: color,
@@ -676,13 +747,13 @@
                         const p2 = particleMeshes[j].position;
                         const mid = new THREE.Vector3(
                             (p1.x + p2.x) / 2,
-                            (p1.y + p2.y) / 2 + dist * 0.08,
+                            (p1.y + p2.y) / 2 + dist * 0.04,
                             (p1.z + p2.z) / 2
                         );
                         const curve = new THREE.QuadraticBezierCurve3(p1, mid, p2);
-                        const pts = curve.getPoints(8);
+                        const pts = curve.getPoints(12);
                         const geo = new THREE.BufferGeometry().setFromPoints(pts);
-                        const opacity = Math.max(0.02, 0.08 - dist * 0.015);
+                        const opacity = Math.max(0.04, 0.18 - dist * 0.02);
                         const lineMat = new THREE.LineBasicMaterial({ color: 0x667eea, transparent: true, opacity });
                         const line = new THREE.Line(geo, lineMat);
                         connectionGroup.add(line);
@@ -906,10 +977,108 @@
             renderer.render(scene, camera);
         }
 
+        // ─── Tools: Hash Text ───
+        async function hashText() {
+            const text = document.getElementById('hash-input').value.trim();
+            if (!text) return;
+            const box = document.getElementById('hash-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Computing...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/hash-sphere/hash`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+                const d = await res.json();
+                box.innerHTML = `<span class="val">Hash:</span> ${d.hash || '?'}<br><span class="val">Energy:</span> ${(d.energy_score || 0).toFixed(4)}<br><span class="val">Spin:</span> ${(d.spin_score || 0).toFixed(4)}<br><span class="val">XYZ:</span> (${(d.xyz || [0,0,0]).map(v => v.toFixed(3)).join(', ')})<br><span class="val">Anchors:</span> ${(d.anchors || []).join(', ') || 'none'}`;
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── Tools: Resonance Calculator ───
+        async function calcResonance() {
+            const h1 = document.getElementById('res-hash1').value.trim();
+            const h2 = document.getElementById('res-hash2').value.trim();
+            if (!h1 || !h2) return;
+            const box = document.getElementById('resonance-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Calculating...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/hash-sphere/resonance`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ hash1: h1, hash2: h2 })
+                });
+                const d = await res.json();
+                box.innerHTML = `<span class="val">Resonance:</span> ${(d.resonance_score || 0).toFixed(6)}<br><span class="val">Boosted:</span> ${(d.boosted_score || 0).toFixed(6)}`;
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── Tools: Search by Resonance ───
+        async function searchByResonance() {
+            const q = document.getElementById('semantic-query').value.trim();
+            if (!q) return;
+            const box = document.getElementById('search-result');
+            box.style.display = 'block';
+            box.innerHTML = 'Searching...';
+            try {
+                const res = await fetch(`${API}/api/v1/memory/hash-sphere/search`, {
+                    method: 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: q, limit: 8 })
+                });
+                const data = await res.json();
+                if (!data.length) { box.innerHTML = 'No results found.'; return; }
+                box.innerHTML = data.map(a =>
+                    `<div style="margin-bottom:4px;border-bottom:1px solid rgba(255,255,255,0.04);padding-bottom:4px;"><span class="val">${(a.anchor_text || '').substring(0, 40)}</span><br><span style="color:#888;font-size:0.8em;">res:${(a.resonance_score || 0).toFixed(3)} | xyz:(${(a.xyz_x || 0).toFixed(2)},${(a.xyz_y || 0).toFixed(2)},${(a.xyz_z || 0).toFixed(2)})</span></div>`
+                ).join('');
+            } catch (e) { box.innerHTML = 'Error: ' + e.message; }
+        }
+
+        // ─── System Status ───
+        async function loadSystemStatus() {
+            // Encryption status
+            try {
+                const res = await fetch(`${API}/api/v1/memory/encryption/status`, { credentials: 'include' });
+                if (res.ok) {
+                    const d = await res.json();
+                    document.getElementById('enc-status').textContent = d.enabled ? '✅ Active' : '❌ Off';
+                    document.getElementById('enc-status').className = 'stat-value ' + (d.enabled ? 'success' : 'danger');
+                    document.getElementById('enc-algo').textContent = d.algorithm || d.cipher || 'N/A';
+                }
+            } catch (e) {}
+            // Performance stats
+            try {
+                const res = await fetch(`${API}/api/v1/memory/perf/stats`, { credentials: 'include' });
+                if (res.ok) {
+                    const d = await res.json();
+                    const p = d.performance || {};
+                    const ec = d.embedding_cache || {};
+                    const sc = d.semantic_cache || {};
+                    const pgv = d.pgvector || {};
+                    document.getElementById('perf-ingests').textContent = (p.total_ingests || 0).toLocaleString();
+                    document.getElementById('perf-retrievals').textContent = (p.total_retrievals || 0).toLocaleString();
+                    const avgRet = p.avg_retrieval_ms || p.timings?.retrieval?.avg || 0;
+                    document.getElementById('perf-avg-ret').textContent = avgRet ? avgRet.toFixed(1) + 'ms' : '—';
+                    const hits = ec.hits || sc.hits || 0;
+                    const misses = ec.misses || sc.misses || 0;
+                    const hitRate = (hits + misses) > 0 ? ((hits / (hits + misses)) * 100).toFixed(1) + '%' : '—';
+                    document.getElementById('perf-cache-hit').textContent = hitRate;
+                    document.getElementById('emb-cache-size').textContent = (ec.size || ec.current_size || 0).toLocaleString();
+                    document.getElementById('emb-cache-hits').textContent = (ec.hits || 0).toLocaleString();
+                    document.getElementById('emb-cache-misses').textContent = (ec.misses || 0).toLocaleString();
+                    document.getElementById('pgv-available').textContent = pgv.available ? '✅ Yes' : '❌ No';
+                    document.getElementById('pgv-available').className = 'stat-value ' + (pgv.available ? 'success' : 'danger');
+                    document.getElementById('pgv-rows').textContent = (pgv.total_rows || pgv.row_count || 0).toLocaleString();
+                }
+            } catch (e) {}
+        }
+
         // ─── Init ───
         initScene();
         animate();
         loadMemories();
+        loadSystemStatus();
     </script>
 </body>
 </html>
