@@ -8,19 +8,19 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a0f; color: #fff; overflow: hidden; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0a0a0c; color: #e0e0e8; overflow: hidden; }
         #container { width: 100vw; height: 100vh; position: relative; }
         #canvas { width: 100%; height: 100%; }
 
-        .panel { position: absolute; background: rgba(17, 17, 24, 0.95); border: 1px solid #2a2a3a; border-radius: 8px; padding: 10px; backdrop-filter: blur(10px); font-size: 0.75em; z-index: 10; cursor: default; user-select: none; }
-        .panel-header { display: flex; justify-content: space-between; align-items: center; cursor: move; margin: -10px -10px 8px -10px; padding: 8px 10px; background: rgba(42, 42, 58, 0.5); border-radius: 8px 8px 0 0; }
-        .panel-header h2 { margin: 0; border: none; padding: 0; color: #888; font-size: 0.95em; }
+        .panel { position: absolute; background: rgba(14, 14, 18, 0.92); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 10px; backdrop-filter: blur(16px); font-size: 0.75em; z-index: 10; cursor: default; user-select: none; box-shadow: 0 4px 24px rgba(0,0,0,0.5); }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; cursor: move; margin: -10px -10px 8px -10px; padding: 8px 10px; background: rgba(18, 18, 24, 0.6); border-radius: 10px 10px 0 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+        .panel-header h2 { margin: 0; border: none; padding: 0; color: rgba(160,180,255,0.7); font-size: 0.95em; }
         .panel-controls { display: flex; gap: 4px; }
         .panel-btn { width: 20px; height: 20px; padding: 0; margin: 0; border-radius: 50%; font-size: 10px; line-height: 20px; text-align: center; cursor: pointer; border: none; color: #fff; }
-        .panel-btn.close { background: #e74c3c; }
-        .panel-btn.close:hover { background: #c0392b; }
-        .panel-btn.minimize { background: #f39c12; }
-        .panel-btn.minimize:hover { background: #d68910; }
+        .panel-btn.close { background: rgba(255,80,80,0.6); }
+        .panel-btn.close:hover { background: rgba(255,80,80,0.8); }
+        .panel-btn.minimize { background: rgba(255,180,50,0.5); }
+        .panel-btn.minimize:hover { background: rgba(255,180,50,0.7); }
         .panel.minimized .panel-content { display: none; }
 
         #controls { top: 10px; left: 10px; width: 240px; max-height: 96vh; overflow-y: auto; }
@@ -28,38 +28,39 @@
         #info-panel { top: 10px; right: 10px; width: 280px; max-height: 50vh; overflow-y: auto; display: none; }
         #memory-list-panel { bottom: 10px; left: 10px; width: 260px; max-height: 35vh; overflow-y: auto; display: none; }
 
-        h3 { color: #888; margin: 6px 0 4px; font-size: 0.85em; }
+        h3 { color: rgba(160,180,255,0.5); margin: 6px 0 4px; font-size: 0.85em; }
         .control-group { margin-bottom: 8px; }
         .control-group label { display: block; margin-bottom: 2px; color: #a0a0a0; font-size: 0.75em; }
 
-        select, input, button { width: 100%; padding: 5px 8px; background: #1a1a2e; border: 1px solid #2a2a3a; border-radius: 4px; color: #fff; font-size: 0.8em; margin-bottom: 4px; }
+        select, input, button { width: 100%; padding: 5px 8px; background: rgba(20, 20, 26, 0.8); border: 1px solid rgba(255,255,255,0.06); border-radius: 6px; color: #e0e0e8; font-size: 0.8em; margin-bottom: 4px; }
         input[type="range"] { appearance: auto; -webkit-appearance: auto; }
-        button { cursor: pointer; background: #2a2a3a; border: 1px solid #3a3a4a; font-weight: bold; }
+        button { cursor: pointer; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); font-weight: bold; transition: all 0.15s ease; }
         button:hover { opacity: 0.9; }
-        .btn-success { background: linear-gradient(135deg, #2ecc71, #27ae60); }
-        .btn-primary { background: linear-gradient(135deg, #667eea, #764ba2); }
-        .btn-warning { background: linear-gradient(135deg, #f39c12, #e67e22); }
-        .btn-danger { background: linear-gradient(135deg, #e74c3c, #c0392b); }
-        .btn-secondary { background: #1a1a2e; border: 1px solid #2a2a3a; }
+        button:active { transform: scale(0.97); }
+        .btn-success { background: linear-gradient(135deg, rgba(0,230,118,0.25), rgba(0,200,100,0.15)); border: 1px solid rgba(0,230,118,0.3); }
+        .btn-primary { background: linear-gradient(135deg, rgba(100,120,255,0.25), rgba(150,100,255,0.15)); border: 1px solid rgba(100,120,255,0.3); }
+        .btn-warning { background: linear-gradient(135deg, rgba(255,170,64,0.25), rgba(240,150,40,0.15)); border: 1px solid rgba(255,170,64,0.3); }
+        .btn-danger { background: linear-gradient(135deg, rgba(255,68,102,0.25), rgba(220,50,80,0.15)); border: 1px solid rgba(255,68,102,0.3); }
+        .btn-secondary { background: rgba(20, 20, 26, 0.8); border: 1px solid rgba(255,255,255,0.06); }
 
-        .stat-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .stat-row { display: flex; justify-content: space-between; padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
         .stat-label { color: #a0a0a0; }
-        .stat-value { color: #888; font-weight: bold; }
-        .stat-value.success { color: #2ecc71; }
-        .stat-value.warning { color: #f39c12; }
-        .stat-value.danger { color: #e74c3c; }
-        .stat-value.info { color: #667eea; }
+        .stat-value { color: #c0c0c8; font-weight: bold; }
+        .stat-value.success { color: #00E5A0; }
+        .stat-value.warning { color: #FFAA40; }
+        .stat-value.danger { color: #FF5252; }
+        .stat-value.info { color: #6C7BFF; }
 
         .legend-item { display: flex; align-items: center; margin: 3px 0; font-size: 0.8em; }
         .legend-color { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; }
 
         .toggle-row { display: flex; gap: 5px; margin-bottom: 8px; }
-        .toggle-btn { flex: 1; padding: 5px; font-size: 0.75em; }
-        .toggle-btn.active { background: #3a3a4a; }
+        .toggle-btn { flex: 1; padding: 5px; font-size: 0.75em; transition: all 0.15s ease; }
+        .toggle-btn.active { background: rgba(100, 120, 255, 0.2); border: 1px solid rgba(100, 120, 255, 0.3); }
 
-        .memory-item { padding: 6px 8px; margin: 3px 0; background: #0a0a0f; border-radius: 4px; border-left: 3px solid #3a3a4a; cursor: pointer; transition: all 0.2s; font-size: 0.85em; }
-        .memory-item:hover { background: #141428; border-left-color: #667eea; }
-        .memory-item.selected { border-left-color: #2ecc71; background: #0f1a0f; }
+        .memory-item { padding: 6px 8px; margin: 3px 0; background: rgba(14,14,18,0.7); border-radius: 6px; border-left: 3px solid rgba(255,255,255,0.06); cursor: pointer; transition: all 0.2s; font-size: 0.85em; }
+        .memory-item:hover { background: rgba(100,120,255,0.08); border-left-color: #6C7BFF; }
+        .memory-item.selected { border-left-color: #00E5A0; background: rgba(0,229,160,0.06); }
         .memory-item .label { font-weight: bold; color: #c0c0c0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .memory-item .meta { font-size: 0.8em; color: #666; margin-top: 2px; }
 
@@ -67,28 +68,28 @@
         .search-box input { flex: 1; }
         .search-box button { width: 60px; }
 
-        #panel-toolbar { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(22, 33, 62, 0.95); border: 1px solid #667eea; border-radius: 20px; padding: 5px 15px; display: flex; gap: 8px; z-index: 100; backdrop-filter: blur(10px); }
+        #panel-toolbar { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(14, 14, 18, 0.9); border: 1px solid rgba(100, 120, 255, 0.12); border-radius: 20px; padding: 5px 15px; display: flex; gap: 8px; z-index: 100; backdrop-filter: blur(16px); box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
         .toolbar-btn { width: auto; padding: 5px 10px; margin: 0; font-size: 0.7em; border-radius: 12px; opacity: 0.6; cursor: pointer; }
-        .toolbar-btn.active { opacity: 1; background: #667eea; }
+        .toolbar-btn.active { opacity: 1; background: rgba(100, 120, 255, 0.2); border: 1px solid rgba(100, 120, 255, 0.3); }
 
-        #loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10, 10, 26, 0.95); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
-        .spinner { width: 50px; height: 50px; border: 4px solid #333; border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite; }
+        #loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10, 10, 12, 0.96); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
+        .spinner { width: 50px; height: 50px; border: 3px solid rgba(100, 120, 255, 0.15); border-top-color: rgba(100, 180, 255, 0.8); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        #loading-text { margin-top: 15px; color: #888; }
+        #loading-text { margin-top: 15px; color: rgba(160, 180, 255, 0.8); font-size: 0.95em; letter-spacing: 0.3px; }
 
-        .tooltip { position: absolute; background: rgba(17, 17, 24, 0.98); border: 1px solid #667eea; border-radius: 8px; padding: 12px; font-size: 12px; max-width: 320px; z-index: 200; pointer-events: none; display: none; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
-        .tooltip .tt-title { color: #667eea; font-weight: 700; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tooltip { position: absolute; background: rgba(14, 14, 18, 0.97); border: 1px solid rgba(100, 120, 255, 0.25); border-radius: 10px; padding: 12px; font-size: 12px; max-width: 320px; z-index: 200; pointer-events: none; display: none; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+        .tooltip .tt-title { color: #6C7BFF; font-weight: 700; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .tooltip .tt-row { display: flex; justify-content: space-between; padding: 2px 0; }
         .tooltip .tt-label { color: #888; }
         .tooltip .tt-val { color: #ccc; font-weight: 600; }
 
-        .energy-bar { height: 4px; border-radius: 2px; background: #1a1a2e; margin-top: 3px; }
+        .energy-bar { height: 4px; border-radius: 2px; background: rgba(20,20,26,0.8); margin-top: 3px; }
         .energy-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
 
         .cluster-badge { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 0.7em; font-weight: 600; }
-        .cluster-alpha { background: rgba(231, 76, 60, 0.2); color: #e74c3c; }
-        .cluster-beta { background: rgba(46, 204, 113, 0.2); color: #2ecc71; }
-        .cluster-gamma { background: rgba(241, 196, 15, 0.2); color: #f1c40f; }
+        .cluster-alpha { background: rgba(255, 82, 82, 0.15); color: #FF5252; }
+        .cluster-beta { background: rgba(0, 229, 160, 0.15); color: #00E5A0; }
+        .cluster-gamma { background: rgba(255, 215, 64, 0.15); color: #FFD740; }
     </style>
 </head>
 <body>
@@ -164,11 +165,11 @@
             <button class="btn-secondary" onclick="exportView()">📷 Screenshot</button>
 
             <h3>Legend</h3>
-            <div class="legend-item"><div class="legend-color" style="background:#e74c3c"></div> Alpha Cluster</div>
-            <div class="legend-item"><div class="legend-color" style="background:#2ecc71"></div> Beta Cluster</div>
-            <div class="legend-item"><div class="legend-color" style="background:#f1c40f"></div> Gamma Cluster</div>
-            <div class="legend-item"><div class="legend-color" style="background:#667eea"></div> High Resonance</div>
-            <div class="legend-item"><div class="legend-color" style="background:#888"></div> Low Resonance</div>
+            <div class="legend-item"><div class="legend-color" style="background:#FF5252"></div> Alpha Cluster</div>
+            <div class="legend-item"><div class="legend-color" style="background:#00E5A0"></div> Beta Cluster</div>
+            <div class="legend-item"><div class="legend-color" style="background:#FFD740"></div> Gamma Cluster</div>
+            <div class="legend-item"><div class="legend-color" style="background:#6C7BFF"></div> High Resonance</div>
+            <div class="legend-item"><div class="legend-color" style="background:#3a3a4a"></div> Low Resonance</div>
         </div>
     </div>
 
@@ -185,9 +186,9 @@
             <div class="stat-row"><span class="stat-label">Total Memories</span><span class="stat-value info" id="s-total">—</span></div>
             <div class="stat-row"><span class="stat-label">Visible</span><span class="stat-value" id="s-visible">—</span></div>
             <div class="stat-row"><span class="stat-label">Connections</span><span class="stat-value" id="s-connections">—</span></div>
-            <div class="stat-row"><span class="stat-label">Alpha Cluster</span><span class="stat-value" style="color:#e74c3c" id="s-alpha">—</span></div>
-            <div class="stat-row"><span class="stat-label">Beta Cluster</span><span class="stat-value" style="color:#2ecc71" id="s-beta">—</span></div>
-            <div class="stat-row"><span class="stat-label">Gamma Cluster</span><span class="stat-value" style="color:#f1c40f" id="s-gamma">—</span></div>
+            <div class="stat-row"><span class="stat-label">Alpha Cluster</span><span class="stat-value" style="color:#FF5252" id="s-alpha">—</span></div>
+            <div class="stat-row"><span class="stat-label">Beta Cluster</span><span class="stat-value" style="color:#00E5A0" id="s-beta">—</span></div>
+            <div class="stat-row"><span class="stat-label">Gamma Cluster</span><span class="stat-value" style="color:#FFD740" id="s-gamma">—</span></div>
             <h3>Resonance</h3>
             <div class="stat-row"><span class="stat-label">Average</span><span class="stat-value success" id="s-avg-res">—</span></div>
             <div class="stat-row"><span class="stat-label">Max</span><span class="stat-value warning" id="s-max-res">—</span></div>
@@ -198,7 +199,7 @@
             <h3>Sentiment</h3>
             <div class="stat-row"><span class="stat-label">Average</span><span class="stat-value" id="s-avg-sentiment">—</span></div>
             <h3>Coordinate System</h3>
-            <div style="color:#666;font-size:0.85em;line-height:1.4;">
+            <div style="color:#555;font-size:0.85em;line-height:1.4;">
                 🌐 XYZ: Cartesian (3D semantic space)<br>
                 🔵 r,φ,θ: Hyperspherical (radius, lat, lon)<br>
                 🌀 Spin: Quantum-inspired rotation vector
@@ -216,7 +217,7 @@
             </div>
         </div>
         <div class="panel-content" id="info-content">
-            <div style="color:#666;text-align:center;padding:20px;">Click a memory node to view details</div>
+            <div style="color:#555;text-align:center;padding:20px;">Click a memory node to view details</div>
         </div>
     </div>
 
@@ -269,24 +270,24 @@
         const API = getApiBaseUrl();
 
         // ─── Color helpers ───
-        const CLUSTER_COLORS = { alpha: 0xe74c3c, beta: 0x2ecc71, gamma: 0xf1c40f };
-        const TYPE_COLORS = { chat: 0x3b82f6, code: 0xf59e0b, function: 0x10b981, pattern: 0x8b5cf6, concept: 0xec4899, decision: 0xef4444, insight: 0x06b6d4, anchor: 0x84cc16 };
+        const CLUSTER_COLORS = { alpha: 0xFF5252, beta: 0x00E5A0, gamma: 0xFFD740 };
+        const TYPE_COLORS = { chat: 0x6C7BFF, code: 0xFFAA40, function: 0x00E5A0, pattern: 0xBF7FFF, concept: 0xFF6B8A, decision: 0xFF5252, insight: 0x40C4FF, anchor: 0x8BC34A };
 
         function getColor(mem) {
             if (colorMode === 'cluster') return CLUSTER_COLORS[mem.cluster] || 0x888888;
             if (colorMode === 'resonance') {
                 const r = mem.resonance;
-                if (r > 0.8) return 0x667eea;
-                if (r > 0.5) return 0x2ecc71;
-                if (r > 0.2) return 0xf39c12;
-                return 0x555555;
+                if (r > 0.8) return 0x6C7BFF;
+                if (r > 0.5) return 0x00E5A0;
+                if (r > 0.2) return 0xFFAA40;
+                return 0x2a2a3a;
             }
             if (colorMode === 'energy') {
                 const e = mem.energy;
-                if (e > 0.7) return 0xe74c3c;
-                if (e > 0.4) return 0xf39c12;
-                if (e > 0.1) return 0x2ecc71;
-                return 0x333333;
+                if (e > 0.7) return 0xFF5252;
+                if (e > 0.4) return 0xFFAA40;
+                if (e > 0.1) return 0x00E5A0;
+                return 0x1a1a2a;
             }
             if (colorMode === 'type') return TYPE_COLORS[mem.type] || 0x888888;
             return 0x888888;
@@ -297,36 +298,46 @@
             return base * (0.5 + mem.resonance * 1.5);
         }
 
+        // ─── Particle dust ───
+        let dustSystem = null, dustPositions = null, dustSpeeds = null;
+
         // ─── Three.js Setup ───
         function initScene() {
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0a0a0f);
-            scene.fog = new THREE.FogExp2(0x0a0a0f, 0.015);
+            scene.background = new THREE.Color(0x0a0a0c);
+            scene.fog = new THREE.FogExp2(0x0a0a0c, 0.008);
 
-            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
             camera.position.set(15, 10, 20);
 
-            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true, alpha: true });
+            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true, alpha: false });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.1;
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
+            controls.dampingFactor = 0.06;
+            controls.rotateSpeed = 0.5;
+            controls.zoomSpeed = 0.8;
             controls.minDistance = 3;
             controls.maxDistance = 100;
             controls.autoRotate = true;
             controls.autoRotateSpeed = 0.5;
 
-            // Lights
-            const ambient = new THREE.AmbientLight(0x404060, 0.6);
+            // 3-point lighting
+            const ambient = new THREE.AmbientLight(0x8090c0, 0.25);
             scene.add(ambient);
-            const point1 = new THREE.PointLight(0x667eea, 0.8, 100);
-            point1.position.set(20, 20, 20);
-            scene.add(point1);
-            const point2 = new THREE.PointLight(0xe74c3c, 0.4, 80);
-            point2.position.set(-20, -10, -15);
-            scene.add(point2);
+            const keyLight = new THREE.PointLight(0xc0d0ff, 0.9, 150);
+            keyLight.position.set(20, 25, 20);
+            scene.add(keyLight);
+            const fillLight = new THREE.PointLight(0xff8844, 0.3, 100);
+            fillLight.position.set(-20, -10, -15);
+            scene.add(fillLight);
+            const rimLight = new THREE.PointLight(0x9966ff, 0.35, 120);
+            rimLight.position.set(0, 10, -30);
+            scene.add(rimLight);
 
             // Groups
             particleGroup = new THREE.Group();
@@ -336,23 +347,39 @@
             scene.add(connectionGroup);
             scene.add(spinGroup);
 
-            // Sphere outline
-            const sphereGeo = new THREE.SphereGeometry(12, 32, 32);
-            const sphereMat = new THREE.MeshBasicMaterial({ color: 0x1a1a3a, wireframe: true, transparent: true, opacity: 0.08 });
+            // Sphere outline — subtle
+            const sphereGeo = new THREE.SphereGeometry(12, 48, 48);
+            const sphereMat = new THREE.MeshBasicMaterial({ color: 0x1a1a2e, wireframe: true, transparent: true, opacity: 0.04 });
             sphereOutline = new THREE.Mesh(sphereGeo, sphereMat);
             scene.add(sphereOutline);
 
-            // Axes
+            // Axes — very subtle
             const axesLen = 14;
             const axesMat = [
-                new THREE.LineBasicMaterial({ color: 0xff4444, transparent: true, opacity: 0.2 }),
-                new THREE.LineBasicMaterial({ color: 0x44ff44, transparent: true, opacity: 0.2 }),
-                new THREE.LineBasicMaterial({ color: 0x4444ff, transparent: true, opacity: 0.2 }),
+                new THREE.LineBasicMaterial({ color: 0xff4466, transparent: true, opacity: 0.12 }),
+                new THREE.LineBasicMaterial({ color: 0x00e5a0, transparent: true, opacity: 0.12 }),
+                new THREE.LineBasicMaterial({ color: 0x6c7bff, transparent: true, opacity: 0.12 }),
             ];
             [[axesLen,0,0],[0,axesLen,0],[0,0,axesLen]].forEach((end, i) => {
                 const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(...end)]);
                 scene.add(new THREE.Line(geo, axesMat[i]));
             });
+
+            // Floating particle dust
+            const dustCount = 400;
+            const dustGeo = new THREE.BufferGeometry();
+            dustPositions = new Float32Array(dustCount * 3);
+            dustSpeeds = new Float32Array(dustCount);
+            for (let i = 0; i < dustCount; i++) {
+                dustPositions[i * 3] = (Math.random() - 0.5) * 80;
+                dustPositions[i * 3 + 1] = (Math.random() - 0.5) * 80;
+                dustPositions[i * 3 + 2] = (Math.random() - 0.5) * 80;
+                dustSpeeds[i] = 0.005 + Math.random() * 0.015;
+            }
+            dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
+            const dustMat = new THREE.PointsMaterial({ color: 0x4466aa, size: 0.15, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false });
+            dustSystem = new THREE.Points(dustGeo, dustMat);
+            scene.add(dustSystem);
 
             // Raycaster
             raycaster = new THREE.Raycaster();
@@ -423,7 +450,7 @@
             const content = document.getElementById('info-content');
             content.innerHTML = `
                 <div style="margin-bottom:8px;">
-                    <div style="color:#667eea;font-weight:700;font-size:1.1em;margin-bottom:4px;">Memory Node</div>
+                    <div style="color:#6C7BFF;font-weight:700;font-size:1.1em;margin-bottom:4px;">Memory Node</div>
                     <div style="color:#ccc;line-height:1.5;max-height:80px;overflow-y:auto;font-size:0.9em;">${(mem.content || 'No content').replace(/</g, '&lt;')}</div>
                 </div>
                 <h3>Position</h3>
@@ -562,12 +589,15 @@
                 const size = getSize(mem);
                 const color = getColor(mem);
 
-                const geo = new THREE.SphereGeometry(size * 0.12, 12, 12);
-                const mat = new THREE.MeshPhongMaterial({
+                const geo = new THREE.SphereGeometry(size * 0.12, 16, 16);
+                const mat = new THREE.MeshStandardMaterial({
                     color: color,
+                    emissive: color,
+                    emissiveIntensity: 0.15 + mem.resonance * 0.3,
+                    metalness: 0.3,
+                    roughness: 0.25,
                     transparent: true,
-                    opacity: 0.7 + mem.resonance * 0.3,
-                    shininess: 60,
+                    opacity: 0.75 + mem.resonance * 0.25,
                 });
                 const mesh = new THREE.Mesh(geo, mat);
 
@@ -594,11 +624,20 @@
 
                 // Glow for high resonance
                 if (mem.resonance > 0.7) {
-                    const glowGeo = new THREE.SphereGeometry(size * 0.25, 8, 8);
-                    const glowMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.15 });
+                    const glowGeo = new THREE.SphereGeometry(size * 0.28, 10, 10);
+                    const glowMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false });
                     const glow = new THREE.Mesh(glowGeo, glowMat);
                     glow.position.copy(mesh.position);
                     particleGroup.add(glow);
+                    // Add subtle ring for very high resonance
+                    if (mem.resonance > 0.9) {
+                        const ringGeo = new THREE.RingGeometry(size * 0.2, size * 0.26, 24);
+                        const ringMat = new THREE.MeshBasicMaterial({ color: color, transparent: true, opacity: 0.08, side: THREE.DoubleSide });
+                        const ring = new THREE.Mesh(ringGeo, ringMat);
+                        ring.position.copy(mesh.position);
+                        ring.lookAt(camera.position);
+                        particleGroup.add(ring);
+                    }
                 }
 
                 // Spin arrows
@@ -620,16 +659,22 @@
 
             const maxConns = 5000;
             let count = 0;
-            const lineMat = new THREE.LineBasicMaterial({ color: 0x667eea, transparent: true, opacity: 0.06 });
-
             for (let i = 0; i < particleMeshes.length && count < maxConns; i++) {
                 for (let j = i + 1; j < particleMeshes.length && count < maxConns; j++) {
                     const dist = particleMeshes[i].position.distanceTo(particleMeshes[j].position);
                     if (dist < connectionDist) {
-                        const geo = new THREE.BufferGeometry().setFromPoints([
-                            particleMeshes[i].position,
-                            particleMeshes[j].position
-                        ]);
+                        const p1 = particleMeshes[i].position;
+                        const p2 = particleMeshes[j].position;
+                        const mid = new THREE.Vector3(
+                            (p1.x + p2.x) / 2,
+                            (p1.y + p2.y) / 2 + dist * 0.08,
+                            (p1.z + p2.z) / 2
+                        );
+                        const curve = new THREE.QuadraticBezierCurve3(p1, mid, p2);
+                        const pts = curve.getPoints(8);
+                        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+                        const opacity = Math.max(0.02, 0.08 - dist * 0.015);
+                        const lineMat = new THREE.LineBasicMaterial({ color: 0x4488FF, transparent: true, opacity });
                         const line = new THREE.Line(geo, lineMat);
                         connectionGroup.add(line);
                         connectionLines.push(line);
@@ -800,23 +845,54 @@
         }
 
         // ─── Animation Loop ───
+        let animTime = 0;
         function animate() {
             animationId = requestAnimationFrame(animate);
+            animTime += 0.016;
 
             // Auto-rotate
             controls.autoRotateSpeed = rotationSpeed;
             controls.update();
 
-            // Hover highlight
+            // Hover highlight with emissive glow
             particleMeshes.forEach((mesh, i) => {
                 if (i === hoveredIdx && i !== selectedIdx) {
-                    mesh.material.emissive = new THREE.Color(0x444444);
-                    mesh.material.emissiveIntensity = 0.3;
-                } else if (i !== selectedIdx) {
-                    mesh.material.emissive = new THREE.Color(0x000000);
-                    mesh.material.emissiveIntensity = 0;
+                    mesh.material.emissive = new THREE.Color(getColor(filteredMemories[i] || {}));
+                    mesh.material.emissiveIntensity = 0.6;
+                    mesh.scale.setScalar(1.5);
+                } else if (i === selectedIdx) {
+                    mesh.material.emissive = new THREE.Color(0xffffff);
+                    mesh.material.emissiveIntensity = 0.5;
+                    mesh.scale.setScalar(2);
+                } else {
+                    const mem = filteredMemories[i];
+                    if (mem) {
+                        mesh.material.emissive = new THREE.Color(getColor(mem));
+                        mesh.material.emissiveIntensity = 0.15 + mem.resonance * 0.3;
+                    }
+                    mesh.scale.setScalar(1);
                 }
             });
+
+            // Sphere outline gentle breathing
+            if (sphereOutline) {
+                const s = 1.0 + Math.sin(animTime * 0.3) * 0.008;
+                sphereOutline.scale.setScalar(s);
+                sphereOutline.rotation.y += 0.0005;
+            }
+
+            // Drift dust particles
+            if (dustSystem && dustPositions) {
+                for (let i = 0; i < dustSpeeds.length; i++) {
+                    dustPositions[i * 3 + 1] += dustSpeeds[i];
+                    if (dustPositions[i * 3 + 1] > 40) {
+                        dustPositions[i * 3 + 1] = -40;
+                        dustPositions[i * 3] = (Math.random() - 0.5) * 80;
+                        dustPositions[i * 3 + 2] = (Math.random() - 0.5) * 80;
+                    }
+                }
+                dustSystem.geometry.attributes.position.needsUpdate = true;
+            }
 
             renderer.render(scene, camera);
         }
