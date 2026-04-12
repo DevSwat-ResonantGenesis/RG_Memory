@@ -14,7 +14,7 @@
 
         .panel { position: absolute; background: rgba(14, 14, 18, 0.92); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 10px; backdrop-filter: blur(16px); font-size: 0.75em; z-index: 10; cursor: default; user-select: none; box-shadow: 0 4px 24px rgba(0,0,0,0.5); }
         .panel-header { display: flex; justify-content: space-between; align-items: center; cursor: move; margin: -10px -10px 8px -10px; padding: 8px 10px; background: rgba(18, 18, 24, 0.6); border-radius: 10px 10px 0 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
-        .panel-header h2 { margin: 0; border: none; padding: 0; color: rgba(160,180,255,0.7); font-size: 0.95em; }
+        .panel-header h2 { margin: 0; border: none; padding: 0; color: #888; font-size: 0.95em; }
         .panel-controls { display: flex; gap: 4px; }
         .panel-btn { width: 20px; height: 20px; padding: 0; margin: 0; border-radius: 50%; font-size: 10px; line-height: 20px; text-align: center; cursor: pointer; border: none; color: #fff; }
         .panel-btn.close { background: rgba(255,80,80,0.6); }
@@ -23,12 +23,12 @@
         .panel-btn.minimize:hover { background: rgba(255,180,50,0.7); }
         .panel.minimized .panel-content { display: none; }
 
-        #controls { top: 10px; left: 10px; width: 240px; max-height: 96vh; overflow-y: auto; }
-        #stats-panel { bottom: 10px; right: 10px; width: 260px; }
-        #info-panel { top: 10px; right: 10px; width: 280px; max-height: 50vh; overflow-y: auto; display: none; }
-        #memory-list-panel { bottom: 10px; left: 10px; width: 260px; max-height: 35vh; overflow-y: auto; display: none; }
+        #controls { top: 50px; left: 10px; width: 200px; max-height: calc(100vh - 70px); overflow-y: auto; }
+        #stats-panel { bottom: 10px; right: 10px; width: 200px; display: none; }
+        #info-panel { top: 50px; right: 10px; width: 220px; max-height: 45vh; overflow-y: auto; display: none; }
+        #memory-list-panel { bottom: 10px; left: 220px; width: 200px; max-height: 35vh; overflow-y: auto; display: none; }
 
-        h3 { color: rgba(160,180,255,0.5); margin: 6px 0 4px; font-size: 0.85em; }
+        h3 { color: #888; margin: 6px 0 4px; font-size: 0.85em; }
         .control-group { margin-bottom: 8px; }
         .control-group label { display: block; margin-bottom: 2px; color: #a0a0a0; font-size: 0.75em; }
 
@@ -38,7 +38,7 @@
         button:hover { opacity: 0.9; }
         button:active { transform: scale(0.97); }
         .btn-success { background: linear-gradient(135deg, rgba(0,230,118,0.25), rgba(0,200,100,0.15)); border: 1px solid rgba(0,230,118,0.3); }
-        .btn-primary { background: linear-gradient(135deg, rgba(100,120,255,0.25), rgba(150,100,255,0.15)); border: 1px solid rgba(100,120,255,0.3); }
+        .btn-primary { background: linear-gradient(135deg, rgba(255,216,0,0.2), rgba(250,165,37,0.12)); border: 1px solid rgba(255,216,0,0.3); }
         .btn-warning { background: linear-gradient(135deg, rgba(255,170,64,0.25), rgba(240,150,40,0.15)); border: 1px solid rgba(255,170,64,0.3); }
         .btn-danger { background: linear-gradient(135deg, rgba(255,68,102,0.25), rgba(220,50,80,0.15)); border: 1px solid rgba(255,68,102,0.3); }
         .btn-secondary { background: rgba(20, 20, 26, 0.8); border: 1px solid rgba(255,255,255,0.06); }
@@ -49,18 +49,18 @@
         .stat-value.success { color: #00E5A0; }
         .stat-value.warning { color: #FFAA40; }
         .stat-value.danger { color: #FF5252; }
-        .stat-value.info { color: #6C7BFF; }
+        .stat-value.info { color: #FFD800; }
 
         .legend-item { display: flex; align-items: center; margin: 3px 0; font-size: 0.8em; }
         .legend-color { width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; flex-shrink: 0; }
 
         .toggle-row { display: flex; gap: 5px; margin-bottom: 8px; }
         .toggle-btn { flex: 1; padding: 5px; font-size: 0.75em; transition: all 0.15s ease; }
-        .toggle-btn.active { background: rgba(100, 120, 255, 0.2); border: 1px solid rgba(100, 120, 255, 0.3); }
+        .toggle-btn.active { background: rgba(255, 216, 0, 0.12); border: 1px solid rgba(255, 216, 0, 0.25); }
 
         .memory-item { padding: 6px 8px; margin: 3px 0; background: rgba(14,14,18,0.7); border-radius: 6px; border-left: 3px solid rgba(255,255,255,0.06); cursor: pointer; transition: all 0.2s; font-size: 0.85em; }
-        .memory-item:hover { background: rgba(100,120,255,0.08); border-left-color: #6C7BFF; }
-        .memory-item.selected { border-left-color: #00E5A0; background: rgba(0,229,160,0.06); }
+        .memory-item:hover { background: rgba(255,216,0,0.06); border-left-color: #FFD800; }
+        .memory-item.selected { border-left-color: #71C23E; background: rgba(113,194,62,0.06); }
         .memory-item .label { font-weight: bold; color: #c0c0c0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .memory-item .meta { font-size: 0.8em; color: #666; margin-top: 2px; }
 
@@ -68,17 +68,25 @@
         .search-box input { flex: 1; }
         .search-box button { width: 60px; }
 
-        #panel-toolbar { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(14, 14, 18, 0.9); border: 1px solid rgba(100, 120, 255, 0.12); border-radius: 20px; padding: 5px 15px; display: flex; gap: 8px; z-index: 100; backdrop-filter: blur(16px); box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+        #panel-toolbar { position: fixed; top: 10px; left: 50%; transform: translateX(-50%); background: rgba(14, 14, 18, 0.9); border: 1px solid rgba(255, 216, 0, 0.15); border-radius: 20px; padding: 5px 15px; display: flex; gap: 8px; z-index: 100; backdrop-filter: blur(16px); box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
         .toolbar-btn { width: auto; padding: 5px 10px; margin: 0; font-size: 0.7em; border-radius: 12px; opacity: 0.6; cursor: pointer; }
-        .toolbar-btn.active { opacity: 1; background: rgba(100, 120, 255, 0.2); border: 1px solid rgba(100, 120, 255, 0.3); }
+        .toolbar-btn.active { opacity: 1; background: rgba(255, 216, 0, 0.12); border: 1px solid rgba(255, 216, 0, 0.25); }
 
         #loading { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10, 10, 12, 0.96); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
-        .spinner { width: 50px; height: 50px; border: 3px solid rgba(100, 120, 255, 0.15); border-top-color: rgba(100, 180, 255, 0.8); border-radius: 50%; animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        #loading-text { margin-top: 15px; color: rgba(160, 180, 255, 0.8); font-size: 0.95em; letter-spacing: 0.3px; }
+        .spinner { width: 50px; height: 50px; position: relative; }
+        .spinner-dot { width: 8px; height: 8px; border-radius: 50%; position: absolute; top: 50%; left: 50%; margin: -4px 0 0 -4px; animation: dotOrbit 1.4s linear infinite; }
+        .spinner-dot:nth-child(1) { background: #FFD800; animation-delay: 0s; }
+        .spinner-dot:nth-child(2) { background: #01A6BC; animation-delay: -0.2s; }
+        .spinner-dot:nth-child(3) { background: #71C23E; animation-delay: -0.4s; }
+        .spinner-dot:nth-child(4) { background: #FFFFFF; animation-delay: -0.6s; }
+        .spinner-dot:nth-child(5) { background: #FA547C; animation-delay: -0.8s; }
+        .spinner-dot:nth-child(6) { background: #FAA525; animation-delay: -1.0s; }
+        .spinner-dot:nth-child(7) { background: #121214; border: 1px solid rgba(255,255,255,0.15); animation-delay: -1.2s; }
+        @keyframes dotOrbit { 0% { transform: rotate(0deg) translateX(20px) scale(1); opacity: 1; } 50% { transform: rotate(180deg) translateX(20px) scale(0.6); opacity: 0.5; } 100% { transform: rotate(360deg) translateX(20px) scale(1); opacity: 1; } }
+        #loading-text { margin-top: 20px; color: rgba(255, 216, 0, 0.7); font-size: 0.95em; letter-spacing: 0.3px; }
 
-        .tooltip { position: absolute; background: rgba(14, 14, 18, 0.97); border: 1px solid rgba(100, 120, 255, 0.25); border-radius: 10px; padding: 12px; font-size: 12px; max-width: 320px; z-index: 200; pointer-events: none; display: none; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
-        .tooltip .tt-title { color: #6C7BFF; font-weight: 700; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tooltip { position: absolute; background: rgba(14, 14, 18, 0.97); border: 1px solid rgba(255, 216, 0, 0.2); border-radius: 10px; padding: 12px; font-size: 12px; max-width: 320px; z-index: 200; pointer-events: none; display: none; box-shadow: 0 8px 32px rgba(0,0,0,0.6); }
+        .tooltip .tt-title { color: #FFD800; font-weight: 700; margin-bottom: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .tooltip .tt-row { display: flex; justify-content: space-between; padding: 2px 0; }
         .tooltip .tt-label { color: #888; }
         .tooltip .tt-val { color: #ccc; font-weight: 600; }
@@ -87,9 +95,9 @@
         .energy-bar-fill { height: 100%; border-radius: 2px; transition: width 0.3s; }
 
         .cluster-badge { display: inline-block; padding: 1px 6px; border-radius: 8px; font-size: 0.7em; font-weight: 600; }
-        .cluster-alpha { background: rgba(255, 82, 82, 0.15); color: #FF5252; }
-        .cluster-beta { background: rgba(0, 229, 160, 0.15); color: #00E5A0; }
-        .cluster-gamma { background: rgba(255, 215, 64, 0.15); color: #FFD740; }
+        .cluster-alpha { background: rgba(255, 216, 0, 0.12); color: #FFD800; }
+        .cluster-beta { background: rgba(1, 166, 188, 0.12); color: #01A6BC; }
+        .cluster-gamma { background: rgba(113, 194, 62, 0.12); color: #71C23E; }
     </style>
 </head>
 <body>
@@ -98,7 +106,15 @@
     </div>
 
     <div id="loading">
-        <div class="spinner"></div>
+        <div class="spinner">
+            <div class="spinner-dot"></div>
+            <div class="spinner-dot"></div>
+            <div class="spinner-dot"></div>
+            <div class="spinner-dot"></div>
+            <div class="spinner-dot"></div>
+            <div class="spinner-dot"></div>
+            <div class="spinner-dot"></div>
+        </div>
         <div id="loading-text">Loading Memory Sphere...</div>
     </div>
 
@@ -107,7 +123,7 @@
     <!-- Toolbar -->
     <div id="panel-toolbar">
         <button class="toolbar-btn active" onclick="togglePanel('controls')">⚙ Controls</button>
-        <button class="toolbar-btn active" onclick="togglePanel('stats-panel')">📊 Stats</button>
+        <button class="toolbar-btn" onclick="togglePanel('stats-panel')">📊 Stats</button>
         <button class="toolbar-btn" onclick="togglePanel('info-panel')">🔍 Detail</button>
         <button class="toolbar-btn" onclick="togglePanel('memory-list-panel')">📋 List</button>
         <button class="toolbar-btn" onclick="resetCamera()">🎯 Reset</button>
@@ -165,10 +181,10 @@
             <button class="btn-secondary" onclick="exportView()">📷 Screenshot</button>
 
             <h3>Legend</h3>
-            <div class="legend-item"><div class="legend-color" style="background:#FF5252"></div> Alpha Cluster</div>
-            <div class="legend-item"><div class="legend-color" style="background:#00E5A0"></div> Beta Cluster</div>
-            <div class="legend-item"><div class="legend-color" style="background:#FFD740"></div> Gamma Cluster</div>
-            <div class="legend-item"><div class="legend-color" style="background:#6C7BFF"></div> High Resonance</div>
+            <div class="legend-item"><div class="legend-color" style="background:#FFD800"></div> Alpha Cluster</div>
+            <div class="legend-item"><div class="legend-color" style="background:#01A6BC"></div> Beta Cluster</div>
+            <div class="legend-item"><div class="legend-color" style="background:#71C23E"></div> Gamma Cluster</div>
+            <div class="legend-item"><div class="legend-color" style="background:#FA547C"></div> High Resonance</div>
             <div class="legend-item"><div class="legend-color" style="background:#3a3a4a"></div> Low Resonance</div>
         </div>
     </div>
@@ -186,9 +202,9 @@
             <div class="stat-row"><span class="stat-label">Total Memories</span><span class="stat-value info" id="s-total">—</span></div>
             <div class="stat-row"><span class="stat-label">Visible</span><span class="stat-value" id="s-visible">—</span></div>
             <div class="stat-row"><span class="stat-label">Connections</span><span class="stat-value" id="s-connections">—</span></div>
-            <div class="stat-row"><span class="stat-label">Alpha Cluster</span><span class="stat-value" style="color:#FF5252" id="s-alpha">—</span></div>
-            <div class="stat-row"><span class="stat-label">Beta Cluster</span><span class="stat-value" style="color:#00E5A0" id="s-beta">—</span></div>
-            <div class="stat-row"><span class="stat-label">Gamma Cluster</span><span class="stat-value" style="color:#FFD740" id="s-gamma">—</span></div>
+            <div class="stat-row"><span class="stat-label">Alpha Cluster</span><span class="stat-value" style="color:#FFD800" id="s-alpha">—</span></div>
+            <div class="stat-row"><span class="stat-label">Beta Cluster</span><span class="stat-value" style="color:#01A6BC" id="s-beta">—</span></div>
+            <div class="stat-row"><span class="stat-label">Gamma Cluster</span><span class="stat-value" style="color:#71C23E" id="s-gamma">—</span></div>
             <h3>Resonance</h3>
             <div class="stat-row"><span class="stat-label">Average</span><span class="stat-value success" id="s-avg-res">—</span></div>
             <div class="stat-row"><span class="stat-label">Max</span><span class="stat-value warning" id="s-max-res">—</span></div>
@@ -270,23 +286,23 @@
         const API = getApiBaseUrl();
 
         // ─── Color helpers ───
-        const CLUSTER_COLORS = { alpha: 0xFF5252, beta: 0x00E5A0, gamma: 0xFFD740 };
-        const TYPE_COLORS = { chat: 0x6C7BFF, code: 0xFFAA40, function: 0x00E5A0, pattern: 0xBF7FFF, concept: 0xFF6B8A, decision: 0xFF5252, insight: 0x40C4FF, anchor: 0x8BC34A };
+        const CLUSTER_COLORS = { alpha: 0xFFD800, beta: 0x01A6BC, gamma: 0x71C23E };
+        const TYPE_COLORS = { chat: 0xFFD800, code: 0xFAA525, function: 0x71C23E, pattern: 0x01A6BC, concept: 0xFA547C, decision: 0xFF5252, insight: 0x01A6BC, anchor: 0x71C23E };
 
         function getColor(mem) {
             if (colorMode === 'cluster') return CLUSTER_COLORS[mem.cluster] || 0x888888;
             if (colorMode === 'resonance') {
                 const r = mem.resonance;
-                if (r > 0.8) return 0x6C7BFF;
-                if (r > 0.5) return 0x00E5A0;
-                if (r > 0.2) return 0xFFAA40;
+                if (r > 0.8) return 0xFA547C;
+                if (r > 0.5) return 0xFFD800;
+                if (r > 0.2) return 0x01A6BC;
                 return 0x2a2a3a;
             }
             if (colorMode === 'energy') {
                 const e = mem.energy;
-                if (e > 0.7) return 0xFF5252;
-                if (e > 0.4) return 0xFFAA40;
-                if (e > 0.1) return 0x00E5A0;
+                if (e > 0.7) return 0xFA547C;
+                if (e > 0.4) return 0xFAA525;
+                if (e > 0.1) return 0x71C23E;
                 return 0x1a1a2a;
             }
             if (colorMode === 'type') return TYPE_COLORS[mem.type] || 0x888888;
@@ -335,7 +351,7 @@
             const fillLight = new THREE.PointLight(0xff8844, 0.3, 100);
             fillLight.position.set(-20, -10, -15);
             scene.add(fillLight);
-            const rimLight = new THREE.PointLight(0x9966ff, 0.35, 120);
+            const rimLight = new THREE.PointLight(0xFFD800, 0.25, 120);
             rimLight.position.set(0, 10, -30);
             scene.add(rimLight);
 
@@ -356,9 +372,9 @@
             // Axes — very subtle
             const axesLen = 14;
             const axesMat = [
-                new THREE.LineBasicMaterial({ color: 0xff4466, transparent: true, opacity: 0.12 }),
-                new THREE.LineBasicMaterial({ color: 0x00e5a0, transparent: true, opacity: 0.12 }),
-                new THREE.LineBasicMaterial({ color: 0x6c7bff, transparent: true, opacity: 0.12 }),
+                new THREE.LineBasicMaterial({ color: 0xFFD800, transparent: true, opacity: 0.1 }),
+                new THREE.LineBasicMaterial({ color: 0x01A6BC, transparent: true, opacity: 0.1 }),
+                new THREE.LineBasicMaterial({ color: 0x71C23E, transparent: true, opacity: 0.1 }),
             ];
             [[axesLen,0,0],[0,axesLen,0],[0,0,axesLen]].forEach((end, i) => {
                 const geo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(...end)]);
@@ -377,7 +393,7 @@
                 dustSpeeds[i] = 0.005 + Math.random() * 0.015;
             }
             dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
-            const dustMat = new THREE.PointsMaterial({ color: 0x4466aa, size: 0.15, transparent: true, opacity: 0.25, blending: THREE.AdditiveBlending, depthWrite: false });
+            const dustMat = new THREE.PointsMaterial({ color: 0xFFD800, size: 0.15, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false });
             dustSystem = new THREE.Points(dustGeo, dustMat);
             scene.add(dustSystem);
 
@@ -450,7 +466,7 @@
             const content = document.getElementById('info-content');
             content.innerHTML = `
                 <div style="margin-bottom:8px;">
-                    <div style="color:#6C7BFF;font-weight:700;font-size:1.1em;margin-bottom:4px;">Memory Node</div>
+                    <div style="color:#FFD800;font-weight:700;font-size:1.1em;margin-bottom:4px;">Memory Node</div>
                     <div style="color:#ccc;line-height:1.5;max-height:80px;overflow-y:auto;font-size:0.9em;">${(mem.content || 'No content').replace(/</g, '&lt;')}</div>
                 </div>
                 <h3>Position</h3>
@@ -636,7 +652,7 @@
                 // Spin arrows
                 if (showSpins && (mem.spinX || mem.spinY || mem.spinZ)) {
                     const dir = new THREE.Vector3(mem.spinX, mem.spinY, mem.spinZ).normalize();
-                    const arrow = new THREE.ArrowHelper(dir, mesh.position, mem.spinMag * 3 + 0.5, 0x667eea, 0.2, 0.1);
+                    const arrow = new THREE.ArrowHelper(dir, mesh.position, mem.spinMag * 3 + 0.5, 0xFFD800, 0.2, 0.1);
                     spinGroup.add(arrow);
                     spinArrows.push(arrow);
                 }
@@ -667,7 +683,7 @@
                         const pts = curve.getPoints(8);
                         const geo = new THREE.BufferGeometry().setFromPoints(pts);
                         const opacity = Math.max(0.02, 0.08 - dist * 0.015);
-                        const lineMat = new THREE.LineBasicMaterial({ color: 0x4488FF, transparent: true, opacity });
+                        const lineMat = new THREE.LineBasicMaterial({ color: 0xFFD800, transparent: true, opacity });
                         const line = new THREE.Line(geo, lineMat);
                         connectionGroup.add(line);
                         connectionLines.push(line);
