@@ -1791,7 +1791,7 @@ async def create_anchor(
 @router.get("/hash-sphere/anchors", response_model=List[AnchorResponse])
 async def list_anchors(
     user_id: Optional[str] = None,
-    limit: int = 50,
+    limit: int = 2000,
     req: Request = None,
     session: AsyncSession = Depends(get_session),
 ):
@@ -2068,7 +2068,7 @@ async def list_archived_files(
 # Frontend expects /rag/... paths - these map to memory operations
 # ============================================
 
-rag_router = APIRouter(prefix="/rag", tags=["rag"])
+rag_router = APIRouter(prefix="/memory/rag", tags=["rag"])
 
 from fastapi import UploadFile, File
 

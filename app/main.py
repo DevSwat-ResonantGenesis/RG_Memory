@@ -94,71 +94,9 @@ async def status():
 
 
 # ============================================
-# RAG ENDPOINTS - Stub implementations for frontend compatibility
+# RAG ENDPOINTS - Stubs removed; rag_router now handles /memory/rag/* paths
+# Only /memory/rag/stats is kept here as it queries raw SQL.
 # ============================================
-
-@app.get("/memory/rag/conversations")
-async def rag_conversations(limit: int = 1000, include_details: bool = True):
-    """Get RAG conversations - stub for frontend compatibility."""
-    return []
-
-
-@app.get("/memory/rag/memories")
-async def rag_memories(limit: int = 100, request: Request = None):
-    """Get RAG memories - proxy to the full RAG router."""
-    from .routers import rag_router
-    # Forward to the actual RAG memories endpoint
-    user_id = request.headers.get("x-user-id") if request else None
-    if not user_id:
-        return []
-    # Import and call the actual endpoint
-    from .routers import list_rag_memories
-    from .db import get_session
-    async for session in get_session():
-        try:
-            return await list_rag_memories(limit=limit, request=request, session=session)
-        except Exception as e:
-            logger.error(f"Failed to list RAG memories: {e}")
-            return []
-
-
-@app.post("/memory/rag/memories")
-async def create_rag_memory_proxy(request: Request):
-    """Create RAG memory - proxy to the full RAG router."""
-    from .routers import create_rag_memory, RAGMemoryCreateRequest
-    from .db import get_session
-    
-    user_id = request.headers.get("x-user-id")
-    if not user_id:
-        from fastapi import HTTPException
-        raise HTTPException(status_code=401, detail="User ID required")
-    
-    # Parse request body
-    body = await request.json()
-    payload = RAGMemoryCreateRequest(
-        content=body.get("content", ""),
-        metadata=body.get("metadata"),
-        is_shared=body.get("is_shared", False),
-        is_public=body.get("is_public", False),
-        shared_with=body.get("shared_with"),
-        language=body.get("language"),
-    )
-    
-    async for session in get_session():
-        try:
-            return await create_rag_memory(payload=payload, request=request, session=session)
-        except Exception as e:
-            logger.error(f"Failed to create RAG memory: {e}")
-            from fastapi import HTTPException
-            raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/memory/rag/search")
-async def rag_search(query: str = "", limit: int = 10, request: Request = None):
-    """Search RAG memories - stub for frontend compatibility."""
-    # NOTE: No credit deduction on stub endpoint - returns empty results
-    # Credits will be deducted when actual RAG functionality is implemented
-    return {"results": [], "query": query}
 
 
 class MemoryIngestRequest(BaseModel):
@@ -278,79 +216,14 @@ app.include_router(visualizer_router)
 app.include_router(memory_router)
 app.include_router(rag_router)
 
+logger.info("Routers mounted: memory_router (prefix=/memory), rag_router (prefix=/memory/rag), visualizer_router")
+
 
 # ============================================
-# HASH SPHERE ENDPOINTS - Stub implementations
+# HASH SPHERE ENDPOINTS — duplicate /memory/hash-sphere/anchors REMOVED (security fix)
+# The router.py version at /memory/hash-sphere/anchors now handles this
+# with proper user_id filtering from x-user-id header.
 # ============================================
-
-@app.get("/memory/hash-sphere/anchors")
-async def hash_sphere_anchors(user_id: str = None, limit: int = 10000):
-    """Get Hash Sphere anchors - returns real memory records with coordinates."""
-    from .db import get_session
-    from sqlalchemy import text
-    try:
-        logger.info(f"Hash sphere anchors request: user_id={user_id}, limit={limit}")
-        session_gen = get_session()
-        session = await session_gen.__anext__()
-        try:
-            query = "SELECT id, content, hash, source, xyz_x, xyz_y, xyz_z, "
-            query += "sphere_r, sphere_phi, sphere_theta, resonance_score, normalized_resonance, "
-            query += "anchor_energy, spin_x, spin_y, spin_z, spin_magnitude, "
-            query += "meaning_score, intensity_score, sentiment_score, "
-            query += "meaning_hash, energy_hash, spin_hash, universe_id, "
-            query += "cluster_name, cluster_distance, created_at "
-            query += "FROM memory_records"
-            params = {}
-            if user_id:
-                query += " WHERE user_id = :user_id"
-                params["user_id"] = user_id
-            query += " ORDER BY created_at DESC LIMIT :limit"
-            params["limit"] = limit
-            result = await session.execute(text(query), params)
-            rows = result.fetchall()
-            columns = list(result.keys())
-            logger.info(f"Hash sphere anchors: found {len(rows)} records")
-            anchors = []
-            for row in rows:
-                record = dict(zip(columns, row))
-                anchors.append({
-                    "id": str(record.get("id", "")),
-                    "anchor_text": (record.get("content") or "")[:100],
-                    "anchor_hash": record.get("hash", ""),
-                    "context": record.get("content", ""),
-                    "anchor_type": record.get("source", "chat"),
-                    "xyz_x": record.get("xyz_x"),
-                    "xyz_y": record.get("xyz_y"),
-                    "xyz_z": record.get("xyz_z"),
-                    "sphere_r": record.get("sphere_r"),
-                    "sphere_phi": record.get("sphere_phi"),
-                    "sphere_theta": record.get("sphere_theta"),
-                    "resonance_score": record.get("resonance_score"),
-                    "normalized_resonance": record.get("normalized_resonance"),
-                    "anchor_energy": record.get("anchor_energy"),
-                    "spin_x": record.get("spin_x"),
-                    "spin_y": record.get("spin_y"),
-                    "spin_z": record.get("spin_z"),
-                    "spin_magnitude": record.get("spin_magnitude"),
-                    "meaning_score": record.get("meaning_score"),
-                    "intensity_score": record.get("intensity_score"),
-                    "sentiment_score": record.get("sentiment_score"),
-                    "importance_score": record.get("meaning_score"),
-                    "meaning_hash": record.get("meaning_hash"),
-                    "energy_hash": record.get("energy_hash"),
-                    "spin_hash": record.get("spin_hash"),
-                    "universe_id": record.get("universe_id"),
-                    "cluster_name": record.get("cluster_name"),
-                    "created_at": str(record.get("created_at", "")),
-                })
-            return anchors
-        finally:
-            await session.close()
-    except Exception as e:
-        logger.error(f"Failed to get hash sphere anchors: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
-        return []
 
 
 @app.get("/memory/hash-sphere/health_stub")
