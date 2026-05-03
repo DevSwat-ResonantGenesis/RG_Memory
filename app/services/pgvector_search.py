@@ -421,6 +421,79 @@ class PgVectorSearch:
             logger.error(f"Multi-scope pgvector search failed: {e}")
             return {}
 
+    async def search_bm25(
+        self,
+        session: AsyncSession,
+        query: str,
+        user_id: Optional[str] = None,
+        org_id: Optional[str] = None,
+        agent_hash: Optional[str] = None,
+        limit: int = 20,
+    ) -> List[VectorSearchResult]:
+        """
+        BM25 full-text search using PostgreSQL tsvector/tsquery.
+
+        Returns results ranked by ts_rank_cd (cover density ranking).
+        """
+        if not query or not query.strip():
+            return []
+
+        try:
+            user_filter = "AND mr.user_id = :user_id" if user_id else ""
+            org_filter = "AND mr.org_id = :org_id" if org_id else ""
+            agent_filter = "AND mr.agent_hash = :agent_hash" if agent_hash else ""
+            archive_filter = (
+                "AND (mr.extra_metadata IS NULL "
+                "OR mr.extra_metadata->>'is_archived' IS NULL "
+                "OR mr.extra_metadata->>'is_archived' = 'false')"
+            )
+
+            sql = text(f"""
+                SELECT
+                    mr.id::text AS memory_id,
+                    mr.content,
+                    mr.hash,
+                    mr.xyz_x, mr.xyz_y, mr.xyz_z,
+                    mr.resonance_score,
+                    mr.extra_metadata,
+                    ts_rank_cd(mr.search_tsv, websearch_to_tsquery('english', :query)) AS bm25_score
+                FROM memory_records mr
+                WHERE mr.search_tsv @@ websearch_to_tsquery('english', :query)
+                    {user_filter} {org_filter} {agent_filter} {archive_filter}
+                ORDER BY bm25_score DESC
+                LIMIT :limit
+            """)
+
+            params: dict = {"query": query, "limit": limit}
+            if user_id:
+                params["user_id"] = user_id
+            if org_id:
+                params["org_id"] = org_id
+            if agent_hash:
+                params["agent_hash"] = agent_hash
+
+            result = await session.execute(sql, params)
+            rows = result.fetchall()
+
+            results = []
+            for row in rows:
+                results.append(VectorSearchResult(
+                    memory_id=row.memory_id,
+                    content=row.content,
+                    similarity=float(row.bm25_score) if row.bm25_score else 0.0,
+                    hash=row.hash,
+                    xyz=(row.xyz_x, row.xyz_y, row.xyz_z) if row.xyz_x is not None else None,
+                    resonance_score=row.resonance_score,
+                    metadata=row.extra_metadata,
+                ))
+
+            logger.debug(f"BM25 search returned {len(results)} results for query: {query[:50]}")
+            return results
+
+        except Exception as e:
+            logger.warning(f"BM25 search failed (column may not exist yet): {e}")
+            return []
+
     async def create_vector_index(
         self,
         session: AsyncSession,

@@ -10,8 +10,8 @@ Includes:
 from datetime import datetime
 import uuid
 
-from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, Text, JSON
-from sqlalchemy.dialects.postgresql import UUID, ARRAY
+from sqlalchemy import Boolean, Column, DateTime, Float, Index, Integer, String, Text, JSON
+from sqlalchemy.dialects.postgresql import UUID, ARRAY, TSVECTOR
 from sqlalchemy.sql import func
 
 from .db import Base
@@ -27,6 +27,7 @@ class MemoryRecord(Base):
     org_id = Column(UUID(as_uuid=True), index=True, nullable=True)  # Multi-tenant
     source = Column(String(64), nullable=False)  # chat, workflow, cognitive, etc.
     content = Column(Text, nullable=False)
+    content_hash = Column(String(64), index=True, nullable=True)
     
     # ========== HASH SPHERE COORDINATE SYSTEM ==========
     
@@ -80,9 +81,16 @@ class MemoryRecord(Base):
     # Full coordinates as JSON (for backward compatibility)
     hash_sphere_coords = Column(JSON, nullable=True)  # Full HashSphereCoordinates dict
     
+    # BM25 full-text search
+    search_tsv = Column(TSVECTOR, nullable=True)
+
     extra_metadata = Column(JSON, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index("ix_memory_records_search_tsv", "search_tsv", postgresql_using="gin"),
+    )
 
 
 class MemoryEmbedding(Base):

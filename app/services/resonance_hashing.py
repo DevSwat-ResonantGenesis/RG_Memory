@@ -310,14 +310,16 @@ class ResonanceHasher:
         normalized = text.lower().strip()
         
         # Layer 2: Hash Generation
-        # meaning_hash: SimHash (locality-sensitive) when embedding available, SHA-256 fallback
+        # PRIORITY: Trained neural hash (semantic) > SHA-256 (random)
         if embedding and len(embedding) >= 3:
             try:
-                from .simhash import simhash_embedding, simhash_to_hex
-                coords.meaning_hash = simhash_to_hex(simhash_embedding(embedding))
+                from .trained_hash_encoder import embedding_to_hash
+                neural_hash = embedding_to_hash(embedding)
+                if neural_hash:
+                    coords.meaning_hash = neural_hash[:20]
             except Exception:
-                coords.meaning_hash = hashlib.sha256(normalized.encode()).hexdigest()[:20]
-        else:
+                pass
+        if not coords.meaning_hash:
             coords.meaning_hash = hashlib.sha256(normalized.encode()).hexdigest()[:20]
         
         # Generate unique hash (SHA-256 + timestamp for dedup uniqueness)
@@ -327,22 +329,8 @@ class ResonanceHasher:
         coords.universe_id = ResonanceHasher.hash_to_universe_id(text)
         
         # Layer 2b: Semantic properties (intensity, sentiment)
-        # PRIORITY: Trained encoder (ML) > hardcoded heuristics
-        _used_trained = False
-        if embedding and len(embedding) >= 3:
-            try:
-                from .trained_semantic_encoder import get_trained_encoder
-                trained_enc = get_trained_encoder()
-                if trained_enc.is_available:
-                    coords.intensity_score = trained_enc.predict_temperature(embedding)
-                    coords.sentiment_score = trained_enc.predict_polarity(embedding)
-                    _used_trained = True
-            except Exception:
-                pass
-        
-        if not _used_trained:
-            coords.intensity_score = ResonanceHasher._calculate_energy(normalized)
-            coords.sentiment_score = ResonanceHasher._calculate_spin(normalized)
+        coords.intensity_score = ResonanceHasher._calculate_energy(normalized)
+        coords.sentiment_score = ResonanceHasher._calculate_spin(normalized)
         
         coords.energy_hash = hashlib.sha256(str(coords.intensity_score).encode()).hexdigest()[:8]
         coords.spin_hash = hashlib.sha256(str(coords.sentiment_score).encode()).hexdigest()[:8]
@@ -573,16 +561,16 @@ class ResonanceHasher:
         if not embedding or len(embedding) < 3:
             return (0.5, 0.5, 0.5)
         
-        # Try learned sphere projection first
+        # PRIORITY: Trained HashSphere encoder (neural, locality-sensitive)
         try:
-            from .sphere_projection import get_sphere_projector
-            projector = get_sphere_projector()
-            if projector.is_available:
-                return projector.project(embedding)
+            from .trained_hash_encoder import embedding_to_xyz as _trained_xyz
+            result = _trained_xyz(embedding)
+            if result is not None:
+                return result
         except Exception:
             pass
         
-        # Fallback: deterministic random projection (JL lemma)
+        # FALLBACK: Deterministic random projection (JL lemma)
         return ResonanceHasher._random_project_xyz(embedding)
     
     @staticmethod

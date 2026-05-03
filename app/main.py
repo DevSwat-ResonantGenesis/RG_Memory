@@ -120,7 +120,7 @@ async def ingest_memory(request: MemoryIngestRequest, req: Request):
     """Ingest a memory into the system with credit deduction."""
     from .db import get_session
     from .routers import ingest_memory as ingest_memory_endpoint
-    from .routers import MemoryIngestRequest as RouterMemoryIngestRequest
+    from .schemas import MemoryIngestRequest as RouterMemoryIngestRequest
 
     payload = RouterMemoryIngestRequest(
         chat_id=request.chat_id,
@@ -210,58 +210,25 @@ async def rag_stats():
         }
 
 
-# Include the full routers with Hash Sphere extraction endpoint
-from .routers import router as memory_router, rag_router
+# Include all routers
+from .routers import router as memory_router
+from .hash_sphere_routes import hash_sphere_router, public_router
+from .rag_routes import rag_router
+from .agent_memory_routes import agent_memory_router
 app.include_router(visualizer_router)
 app.include_router(memory_router)
+app.include_router(hash_sphere_router)
+app.include_router(public_router)
 app.include_router(rag_router)
+app.include_router(agent_memory_router)
 
-logger.info("Routers mounted: memory_router (prefix=/memory), rag_router (prefix=/memory/rag), visualizer_router")
-
-
-# ============================================
-# HASH SPHERE ENDPOINTS — duplicate /memory/hash-sphere/anchors REMOVED (security fix)
-# The router.py version at /memory/hash-sphere/anchors now handles this
-# with proper user_id filtering from x-user-id header.
-# ============================================
+logger.info("Routers mounted: memory, hash_sphere, public, rag, agent_memory, visualizer")
 
 
 @app.get("/memory/hash-sphere/health_stub")
 async def hash_sphere_health():
     """Hash Sphere health check."""
     return {"status": "ok", "service": "hash-sphere"}
-
-
-@app.post("/memory/hash-sphere/retrain")
-async def trigger_retrain():
-    """Manually trigger retraining of Hash Sphere ML models.
-    
-    Retrains:
-    - Semantic encoder (cluster/temperature/polarity from embeddings)
-    - Sphere projection (512→3D triplet-loss neural network)
-    
-    Uses production MemoryEmbedding data as training source.
-    """
-    try:
-        from .services.retraining_loop import get_retrainer
-        retrainer = get_retrainer()
-        result = await retrainer.trigger_manual_retrain()
-        return result
-    except Exception as e:
-        logger.error(f"Manual retrain failed: {e}")
-        return {"status": "failed", "error": str(e)}
-
-
-@app.on_event("startup")
-async def start_retraining_loop():
-    """Start the autonomous retraining loop on app startup."""
-    try:
-        from .services.retraining_loop import get_retrainer
-        retrainer = get_retrainer()
-        await retrainer.start()
-        logger.info("Hash Sphere autonomous retraining loop started")
-    except Exception as e:
-        logger.warning(f"Failed to start retraining loop: {e}")
 
 
 @app.post("/memory/clusters/compute")

@@ -2,155 +2,130 @@
 Temporal Memory Layer (TML) Service
 Enables AI to understand time: "last week", "yesterday", "earlier today", etc.
 
-PATCH #21: Your AI understands human time expressions and retrieves memories by temporal queries.
+Detects temporal expressions in queries and filters memories by created_at timestamp.
 """
 
 from __future__ import annotations
 
-import re
-from datetime import datetime, timedelta
+import logging
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional, Tuple
-from uuid import UUID
 
-from sqlmodel import Session, select
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 
 TIME_PATTERNS = {
-    "yesterday": 1,
-    "last week": 7,
-    "a week ago": 7,
-    "last month": 30,
-    "a month ago": 30,
-    "two months ago": 60,
-    "three months ago": 90,
-    "earlier today": 0,
-    "this morning": 0,
-    "last year": 365,
-    "a year ago": 365,
-    "recently": 7,
-    "a few days ago": 3,
-    "last few days": 3,
+    "yesterday": (1, 1),
+    "last week": (7, 3),
+    "a week ago": (7, 3),
+    "last month": (30, 7),
+    "a month ago": (30, 7),
+    "two months ago": (60, 7),
+    "three months ago": (90, 7),
+    "earlier today": (0, 0),
+    "this morning": (0, 0),
+    "last year": (365, 30),
+    "a year ago": (365, 30),
+    "recently": (3, 3),
+    "a few days ago": (3, 2),
+    "last few days": (3, 3),
 }
 
 
-def detect_temporal_query(text: str) -> Tuple[Optional[str], Optional[int]]:
+def detect_temporal_query(text: str) -> Tuple[Optional[str], Optional[int], Optional[int]]:
     """
-    Detect temporal query from user text.
-    
-    PATCH #21: Identifies time expressions like "last week", "yesterday", etc.
-    
-    Args:
-        text: User message text
+    Detect temporal expression in user text.
     
     Returns:
-        Tuple of (time_key, days_ago) or (None, None) if no temporal query detected
+        Tuple of (time_key, days_ago, window_days) or (None, None, None)
     """
     if not text:
-        return None, None
+        return None, None, None
     
     text_lower = text.lower()
     
-    for key, days in TIME_PATTERNS.items():
+    for key, (days, window) in TIME_PATTERNS.items():
         if key in text_lower:
-            return key, days
+            return key, days, window
     
-    return None, None
+    return None, None, None
 
 
-def extract_temporal_memories(
-    session: Session,
+async def extract_temporal_memories(
+    session: AsyncSession,
     user_id: str,
-    org_id: Optional[str],
-    text: str
+    query: str,
+    limit: int = 10,
 ) -> List[Dict]:
     """
-    Extract memories based on temporal query.
+    Retrieve memories from a time window matching the user's temporal query.
     
-    PATCH #21: Retrieves memories from a specific time period based on user's temporal query.
+    Uses direct DB query on created_at — no rag_engine dependency.
     
     Args:
-        session: Database session
-        user_id: User ID
-        org_id: Optional organization ID
-        text: User message text
+        session: Async database session
+        user_id: User UUID string
+        query: User message text
+        limit: Max results
     
     Returns:
-        List of memory dicts with temporal relevance
+        List of memory dicts with temporal scores, or [] if no temporal expression found
     """
-    key, days = detect_temporal_query(text)
-    
-    if not key:
+    from ..models import MemoryRecord
+    from .memory_encryption import decrypt_memory_content
+    import uuid as _uuid
+
+    key, days_ago, window = detect_temporal_query(query)
+    if key is None:
         return []
-    
-    target_date = datetime.utcnow() - timedelta(days=days)
-    
-    # Query memories for this user (using RAG engine)
+
+    now = datetime.now(timezone.utc)
+    if days_ago == 0:
+        range_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        range_end = now
+    else:
+        target = now - timedelta(days=days_ago)
+        range_start = target - timedelta(days=window)
+        range_end = target + timedelta(days=window)
+
     try:
-        from ..services.rag import rag_engine
-        # Get all memories for this user
-        memories_raw = rag_engine.retrieve_memories(
-            session=session,
-            user_id=user_id,
-            org_id=org_id,
-            query="",  # Empty query to get all memories
-            top_k=100,  # Get many to filter by time
-            use_embedding=False
-        )
-        memories = memories_raw
+        user_uuid = _uuid.UUID(user_id)
     except Exception:
-        memories = []
-    
-    # Filter by timestamp closeness
-    result = []
-    for mem in memories:
-        mem_time = None
-        mem_content = mem.get("content", "") if isinstance(mem, dict) else getattr(mem, "content", "")
-        
-        if not mem_content:
+        return []
+
+    try:
+        stmt = (
+            select(MemoryRecord)
+            .where(
+                MemoryRecord.user_id == user_uuid,
+                MemoryRecord.created_at >= range_start,
+                MemoryRecord.created_at <= range_end,
+            )
+            .order_by(MemoryRecord.created_at.desc())
+            .limit(limit)
+        )
+        result = await session.execute(stmt)
+        records = result.scalars().all()
+    except Exception as e:
+        logger.warning(f"Temporal query failed: {e}")
+        return []
+
+    memories = []
+    for rec in records:
+        content = decrypt_memory_content(rec.content)
+        if not content or len(content) < 10 or content.startswith("ENC2:"):
             continue
-        
-        # Try to get timestamp from metadata
-        mem_meta = mem.get("metadata", {}) if isinstance(mem, dict) else getattr(mem, "meta_data", {})
-        if mem_meta and isinstance(mem_meta, dict):
-            mem_time_str = mem_meta.get("created_at")
-            if mem_time_str:
-                try:
-                    from dateutil import parser as date_parser
-                    mem_time = date_parser.parse(mem_time_str)
-                except Exception:
-                    pass
-        
-        # Fallback to created_at if available
-        if not mem_time:
-            if isinstance(mem, dict):
-                mem_time = mem.get("created_at")
-            else:
-                mem_time = getattr(mem, 'created_at', None)
-        
-        if not mem_time:
-            continue
-        
-        # Calculate time difference
-        if isinstance(mem_time, str):
-            try:
-                from dateutil import parser as date_parser
-                mem_time = date_parser.parse(mem_time)
-            except Exception:
-                continue
-        
-        delta = abs((mem_time - target_date).days)
-        
-        # Include memories within 3 days of target (for "yesterday", "last week", etc.)
-        if delta <= 3:
-            result.append({
-                "content": mem_content,
-                "delta_days": delta,
-                "timestamp": mem_time.isoformat() if hasattr(mem_time, 'isoformat') else str(mem_time),
-                "type": "temporal"
-            })
-    
-    # Sort by closeness (closer = better)
-    result.sort(key=lambda x: x["delta_days"])
-    
-    return result[:5]
+        memories.append({
+            "id": str(rec.id),
+            "content": content,
+            "type": "temporal",
+            "timestamp": rec.created_at.isoformat() if rec.created_at else None,
+            "temporal_key": key,
+        })
+
+    logger.debug(f"Temporal search '{key}' ({range_start.date()} → {range_end.date()}) returned {len(memories)} memories")
+    return memories
 
