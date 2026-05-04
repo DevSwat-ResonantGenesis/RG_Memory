@@ -937,6 +937,9 @@
 
             // Connections
             if (showConnections) buildConnections();
+
+            // Initialize physics velocities and base positions
+            initPhysicsState();
         }
 
         function buildConnections() {
@@ -1136,45 +1139,124 @@
 
         // ─── Animation Loop ───
         let animTime = 0;
+        // ─── Physics state per particle ───
+        const velocities = [];  // {vx, vy, vz} per particle
+        const basePositions = [];  // original positions to spring back to
+
+        function initPhysicsState() {
+            velocities.length = 0;
+            basePositions.length = 0;
+            particleMeshes.forEach(mesh => {
+                velocities.push({ vx: 0, vy: 0, vz: 0 });
+                basePositions.push(mesh.position.clone());
+            });
+        }
+
         function animate() {
             animationId = requestAnimationFrame(animate);
-            animTime += 0.016;
+            const dt = 0.016;
+            animTime += dt;
 
-            // Auto-rotate
             controls.autoRotateSpeed = rotationSpeed;
             controls.update();
 
-            // Hover highlight with emissive glow
+            const N = particleMeshes.length;
+            const G = 0.0003;  // gravitational constant (subtle)
+            const springK = 0.02;  // spring back to base position
+            const damping = 0.92;  // velocity damping
+
+            // ─── Physics: gravity + spring + spin ───
+            for (let i = 0; i < N; i++) {
+                const mesh = particleMeshes[i];
+                const mem = filteredMemories[i];
+                if (!mesh || !mem) continue;
+                let vel = velocities[i];
+                let base = basePositions[i];
+                if (!vel || !base) continue;
+
+                // Gravitational attraction to nearby high-resonance nodes
+                let fx = 0, fy = 0, fz = 0;
+                for (let j = 0; j < N; j++) {
+                    if (i === j) continue;
+                    const other = particleMeshes[j];
+                    const omem = filteredMemories[j];
+                    if (!other || !omem) continue;
+                    const dx = other.position.x - mesh.position.x;
+                    const dy = other.position.y - mesh.position.y;
+                    const dz = other.position.z - mesh.position.z;
+                    const distSq = dx * dx + dy * dy + dz * dz + 0.5;
+                    if (distSq > 100) continue;  // skip distant pairs
+                    const mass = 0.5 + omem.resonance * 2;
+                    const force = G * mass / distSq;
+                    const dist = Math.sqrt(distSq);
+                    fx += force * dx / dist;
+                    fy += force * dy / dist;
+                    fz += force * dz / dist;
+                }
+
+                // Spring force back to base position
+                fx += (base.x - mesh.position.x) * springK;
+                fy += (base.y - mesh.position.y) * springK;
+                fz += (base.z - mesh.position.z) * springK;
+
+                // Spin-induced tangential drift
+                if (mem.spinMag > 0.01) {
+                    const spinF = mem.spinMag * 0.005;
+                    fx += mem.spinZ * spinF;
+                    fy += mem.spinX * spinF;
+                    fz += mem.spinY * spinF;
+                }
+
+                vel.vx = (vel.vx + fx) * damping;
+                vel.vy = (vel.vy + fy) * damping;
+                vel.vz = (vel.vz + fz) * damping;
+                mesh.position.x += vel.vx;
+                mesh.position.y += vel.vy;
+                mesh.position.z += vel.vz;
+            }
+
+            // ─── Hover / selection highlight ───
             particleMeshes.forEach((mesh, i) => {
+                const mem = filteredMemories[i];
                 if (i === hoveredIdx && i !== selectedIdx) {
-                    mesh.material.emissive = new THREE.Color(getColor(filteredMemories[i] || {}));
+                    mesh.material.emissive = new THREE.Color(getColor(mem || {}));
                     mesh.material.emissiveIntensity = 0.4;
                     mesh.scale.setScalar(1.3);
                 } else if (i === selectedIdx) {
                     mesh.material.emissive = new THREE.Color(0xffffff);
                     mesh.material.emissiveIntensity = 0.35;
                     mesh.scale.setScalar(1.6);
+                } else if (mem) {
+                    // Energy pulse: high-energy nodes gently pulse size
+                    const pulse = 1.0 + Math.sin(animTime * (1.5 + mem.energy * 2) + i) * 0.04 * mem.energy;
+                    mesh.material.emissive = new THREE.Color(getColor(mem));
+                    mesh.material.emissiveIntensity = 0.1 + mem.resonance * 0.15 + Math.sin(animTime * 0.8 + i * 0.5) * 0.03;
+                    mesh.scale.setScalar(pulse);
                 } else {
-                    const mem = filteredMemories[i];
-                    if (mem) {
-                        mesh.material.emissive = new THREE.Color(getColor(mem));
-                        mesh.material.emissiveIntensity = 0.1 + mem.resonance * 0.15;
-                    }
                     mesh.scale.setScalar(1);
                 }
             });
 
-            // Sphere outline gentle breathing
+            // ─── Sphere outline breathing ───
             if (sphereOutline) {
                 const s = 1.0 + Math.sin(animTime * 0.3) * 0.008;
                 sphereOutline.scale.setScalar(s);
                 sphereOutline.rotation.y += 0.0005;
             }
 
-            // Drift dust particles
+            // ─── Spin arrow rotation ───
+            spinArrows.forEach((arrow, i) => {
+                const mem = filteredMemories[i];
+                if (mem && mem.spinMag > 0.01) {
+                    arrow.rotation.y += mem.spinMag * 0.02;
+                }
+            });
+
+            // ─── Drift dust particles ───
             if (dustSystem && dustPositions) {
                 for (let i = 0; i < dustSpeeds.length; i++) {
                     dustPositions[i * 3 + 1] += dustSpeeds[i];
+                    dustPositions[i * 3] += Math.sin(animTime * 0.2 + i) * 0.002;
                     if (dustPositions[i * 3 + 1] > 40) {
                         dustPositions[i * 3 + 1] = -40;
                         dustPositions[i * 3] = (Math.random() - 0.5) * 80;
@@ -1766,8 +1848,13 @@
         }
 
         // ─── Init ───
-        initScene();
-        animate();
+        try {
+            initScene();
+            animate();
+        } catch (e) {
+            console.error('initScene failed:', e);
+            document.getElementById('loading-text').textContent = 'Render error: ' + e.message;
+        }
         loadMemories();
         loadSystemStatus();
     </script>
