@@ -171,10 +171,14 @@
 
             <h3>Color By</h3>
             <div class="toggle-row">
-                <button class="toggle-btn active" id="color-cluster" onclick="setColorMode('cluster')">Cluster</button>
+                <button class="toggle-btn active" id="color-source" onclick="setColorMode('source')">Source</button>
                 <button class="toggle-btn" id="color-resonance" onclick="setColorMode('resonance')">Resonance</button>
                 <button class="toggle-btn" id="color-energy" onclick="setColorMode('energy')">Energy</button>
-                <button class="toggle-btn" id="color-type" onclick="setColorMode('type')">Type</button>
+            </div>
+            <div class="toggle-row">
+                <button class="toggle-btn" id="color-meaning" onclick="setColorMode('meaning')">Meaning</button>
+                <button class="toggle-btn" id="color-age" onclick="setColorMode('age')">Age</button>
+                <button class="toggle-btn" id="color-cluster" onclick="setColorMode('cluster')">Cluster</button>
             </div>
 
             <div class="control-group">
@@ -203,14 +207,14 @@
             <button class="btn-warning" onclick="toggleConnections()">🔗 Toggle Connections</button>
             <button class="btn-secondary" onclick="exportView()">📷 Screenshot</button>
 
-            <h3>Legend</h3>
-            <div class="legend-item"><div class="legend-color" style="background:#FFD800"></div> α Alpha – Living</div>
-            <div class="legend-item"><div class="legend-color" style="background:#01A6BC"></div> β Beta – Inanimate</div>
-            <div class="legend-item"><div class="legend-color" style="background:#71C23E"></div> γ Gamma – Abstract</div>
-            <div class="legend-item"><div class="legend-color" style="background:#FA547C"></div> δ Delta – Actions</div>
-            <div class="legend-item"><div class="legend-color" style="background:#FAA525"></div> ε Epsilon – Qualities</div>
-            <div class="legend-item"><div class="legend-color" style="background:#8B5CF6"></div> ζ Zeta – Relations</div>
-            <div class="legend-item"><div class="legend-color" style="background:#555"></div> Unclustered</div>
+            <h3>Legend (Source)</h3>
+            <div class="legend-item"><div class="legend-color" style="background:#FFD800"></div> Chat (resonant-chat)</div>
+            <div class="legend-item"><div class="legend-color" style="background:#01A6BC"></div> Project / Code</div>
+            <div class="legend-item"><div class="legend-color" style="background:#71C23E"></div> Agent (agentic)</div>
+            <div class="legend-item"><div class="legend-color" style="background:#FA547C"></div> RAG Memory</div>
+            <div class="legend-item"><div class="legend-color" style="background:#FAA525"></div> Chat History</div>
+            <div class="legend-item"><div class="legend-color" style="background:#FFFFFF"></div> IDE Upload</div>
+            <div class="legend-item"><div class="legend-color" style="background:#444455"></div> Other</div>
         </div>
     </div>
 
@@ -227,27 +231,23 @@
             <div class="stat-row"><span class="stat-label">Total Memories</span><span class="stat-value info" id="s-total">—</span></div>
             <div class="stat-row"><span class="stat-label">Visible</span><span class="stat-value" id="s-visible">—</span></div>
             <div class="stat-row"><span class="stat-label">Connections</span><span class="stat-value" id="s-connections">—</span></div>
-            <div class="stat-row"><span class="stat-label">α Alpha (Living)</span><span class="stat-value" style="color:#FFD800" id="s-alpha">—</span></div>
-            <div class="stat-row"><span class="stat-label">β Beta (Inanimate)</span><span class="stat-value" style="color:#01A6BC" id="s-beta">—</span></div>
-            <div class="stat-row"><span class="stat-label">γ Gamma (Abstract)</span><span class="stat-value" style="color:#71C23E" id="s-gamma">—</span></div>
-            <div class="stat-row"><span class="stat-label">δ Delta (Actions)</span><span class="stat-value" style="color:#FA547C" id="s-delta">—</span></div>
-            <div class="stat-row"><span class="stat-label">ε Epsilon (Qualities)</span><span class="stat-value" style="color:#FAA525" id="s-epsilon">—</span></div>
-            <div class="stat-row"><span class="stat-label">ζ Zeta (Relations)</span><span class="stat-value" style="color:#8B5CF6" id="s-zeta">—</span></div>
-            <div class="stat-row"><span class="stat-label">Unclustered</span><span class="stat-value" style="color:#555" id="s-unclust">—</span></div>
-            <h3>Resonance</h3>
+            <h3>By Source</h3>
+            <div id="s-source-breakdown"></div>
+            <h3>Resonance (normalized)</h3>
             <div class="stat-row"><span class="stat-label">Average</span><span class="stat-value success" id="s-avg-res">—</span></div>
             <div class="stat-row"><span class="stat-label">Max</span><span class="stat-value warning" id="s-max-res">—</span></div>
             <div class="stat-row"><span class="stat-label">Min</span><span class="stat-value" id="s-min-res">—</span></div>
-            <h3>Energy</h3>
-            <div class="stat-row"><span class="stat-label">Average</span><span class="stat-value info" id="s-avg-energy">—</span></div>
+            <h3>Energy / Meaning</h3>
+            <div class="stat-row"><span class="stat-label">Avg Energy</span><span class="stat-value info" id="s-avg-energy">—</span></div>
+            <div class="stat-row"><span class="stat-label">Avg Meaning</span><span class="stat-value" id="s-avg-meaning">—</span></div>
             <div class="stat-row"><span class="stat-label">Total Spin</span><span class="stat-value" id="s-total-spin">—</span></div>
             <h3>Sentiment</h3>
             <div class="stat-row"><span class="stat-label">Average</span><span class="stat-value" id="s-avg-sentiment">—</span></div>
             <h3>Coordinate System</h3>
             <div style="color:#555;font-size:0.85em;line-height:1.4;">
-                🌐 XYZ: Cartesian (3D semantic space)<br>
-                🔵 r,φ,θ: Hyperspherical (radius, lat, lon)<br>
-                🌀 Spin: Quantum-inspired rotation vector
+                XYZ: Centered semantic space (mean-subtracted)<br>
+                r,phi,theta: Hyperspherical coordinates<br>
+                Spin: Sentiment-derived rotation vector
             </div>
         </div>
     </div>
@@ -543,7 +543,7 @@
         let showConnections = true;
         let showSpins = false;
         let viewMode = 'sphere';
-        let colorMode = 'cluster';
+        let colorMode = 'source';
         let connectionDist = 6.0;
         let minResonanceFilter = 0;
         let dragPanel = null, dragOffset = { x: 0, y: 0 };
@@ -559,32 +559,82 @@
         const API = getApiBaseUrl();
 
         // ─── Color helpers ───
-        const CLUSTER_COLORS = { alpha: 0xFFD800, beta: 0x01A6BC, gamma: 0x71C23E, delta: 0xFA547C, epsilon: 0xFAA525, zeta: 0x8B5CF6, unclustered: 0x555555 };
-        const TYPE_COLORS = { chat: 0xFFD800, code: 0xFAA525, function: 0x71C23E, pattern: 0x01A6BC, concept: 0xFA547C, decision: 0xFF5252, insight: 0x01A6BC, anchor: 0x71C23E };
+        // Source colors — map actual backend source values to DevSwat palette
+        const SOURCE_COLORS = {
+            'resonant-chat': 0xFFD800,           // yellow — primary chat
+            'resonant-chat-history': 0xFAA525,   // orange — chat history
+            'project': 0x01A6BC,                 // teal — code/project
+            'agentic_assistant': 0x71C23E,       // green — agent
+            'agent_engine': 0x71C23E,            // green — agent
+            'agent_architect': 0x71C23E,         // green — agent
+            'builder_agent': 0x71C23E,           // green — agent
+            'rag': 0xFA547C,                     // pink — RAG
+            'code_visualizer': 0x01A6BC,         // teal
+            'ide_upload': 0xFFFFFF,              // white — IDE
+            'user-profile': 0xFFFFFF,            // white — user
+            'chat': 0xFFD800,                    // yellow
+        };
+        // Cluster colors (for the few records that have real clusters)
+        const CLUSTER_COLORS = {
+            'alpha': 0xFFD800, 'alpha-living': 0xFFD800,
+            'beta': 0x01A6BC, 'beta-inanimate': 0x01A6BC,
+            'gamma': 0x71C23E, 'gamma-abstract': 0x71C23E,
+            'delta': 0xFA547C, 'delta-actions': 0xFA547C,
+            'epsilon': 0xFAA525, 'epsilon-qualities': 0xFAA525,
+            'zeta': 0xFA547C, 'zeta-relations': 0xFA547C,
+            'unclustered': 0x444455,
+        };
+
+        // Interpolate between two hex colors (0-1)
+        function lerpColor(a, b, t) {
+            const ar = (a >> 16) & 0xff, ag = (a >> 8) & 0xff, ab = a & 0xff;
+            const br = (b >> 16) & 0xff, bg = (b >> 8) & 0xff, bb = b & 0xff;
+            const r = Math.round(ar + (br - ar) * t);
+            const g = Math.round(ag + (bg - ag) * t);
+            const bl = Math.round(ab + (bb - ab) * t);
+            return (r << 16) | (g << 8) | bl;
+        }
 
         function getColor(mem) {
-            if (colorMode === 'cluster') return CLUSTER_COLORS[mem.cluster] || 0x888888;
+            if (colorMode === 'source') {
+                return SOURCE_COLORS[mem.type] || 0x444455;
+            }
+            if (colorMode === 'cluster') {
+                return CLUSTER_COLORS[mem.cluster] || 0x444455;
+            }
             if (colorMode === 'resonance') {
+                // Smooth gradient: low=dim blue → mid=teal → high=yellow → peak=pink
                 const r = mem.resonance;
-                if (r > 0.8) return 0xFA547C;
-                if (r > 0.5) return 0xFFD800;
-                if (r > 0.2) return 0x01A6BC;
-                return 0x2a2a3a;
+                if (r > 0.85) return lerpColor(0xFFD800, 0xFA547C, (r - 0.85) / 0.15);
+                if (r > 0.5)  return lerpColor(0x01A6BC, 0xFFD800, (r - 0.5) / 0.35);
+                if (r > 0.15) return lerpColor(0x1a2a3a, 0x01A6BC, (r - 0.15) / 0.35);
+                return 0x121220;
             }
             if (colorMode === 'energy') {
                 const e = mem.energy;
-                if (e > 0.7) return 0xFA547C;
-                if (e > 0.4) return 0xFAA525;
-                if (e > 0.1) return 0x71C23E;
-                return 0x1a1a2a;
+                if (e > 0.8) return lerpColor(0xFAA525, 0xFA547C, (e - 0.8) / 0.2);
+                if (e > 0.4) return lerpColor(0x71C23E, 0xFAA525, (e - 0.4) / 0.4);
+                if (e > 0.1) return lerpColor(0x1a2a3a, 0x71C23E, (e - 0.1) / 0.3);
+                return 0x121220;
             }
-            if (colorMode === 'type') return TYPE_COLORS[mem.type] || 0x888888;
-            return 0x888888;
+            if (colorMode === 'age') {
+                // Newest = bright yellow, oldest = dim purple
+                const a = mem.ageNorm || 0; // 0=oldest, 1=newest
+                return lerpColor(0x1a1028, 0xFFD800, a);
+            }
+            if (colorMode === 'meaning') {
+                const m = mem.meaning;
+                if (m > 0.7) return lerpColor(0x71C23E, 0xFFD800, (m - 0.7) / 0.3);
+                if (m > 0.3) return lerpColor(0x01A6BC, 0x71C23E, (m - 0.3) / 0.4);
+                return lerpColor(0x121220, 0x01A6BC, m / 0.3);
+            }
+            return SOURCE_COLORS[mem.type] || 0x444455;
         }
 
         function getSize(mem) {
             const base = parseFloat(document.getElementById('particle-size').value) || 2.0;
-            return base * (0.5 + mem.resonance * 1.5);
+            // Size driven by meaning_score (content richness) — varies 0-1
+            return base * (0.3 + mem.meaning * 1.2);
         }
 
         // ─── Particle dust ───
@@ -637,7 +687,7 @@
             scene.add(spinGroup);
 
             // Sphere outline — subtle
-            const sphereGeo = new THREE.SphereGeometry(12, 48, 48);
+            const sphereGeo = new THREE.SphereGeometry(11, 48, 48);
             const sphereMat = new THREE.MeshBasicMaterial({ color: 0x1a1a2e, wireframe: true, transparent: true, opacity: 0.04 });
             sphereOutline = new THREE.Mesh(sphereGeo, sphereMat);
             scene.add(sphereOutline);
@@ -706,11 +756,11 @@
                     const text = (mem.content || '').substring(0, 80);
                     tooltip.innerHTML = `
                         <div class="tt-title">${text || 'Memory Node'}${text.length >= 80 ? '...' : ''}</div>
-                        <div class="tt-row"><span class="tt-label">Cluster</span><span class="tt-val"><span class="cluster-badge cluster-${mem.cluster}">${mem.cluster}</span></span></div>
+                        <div class="tt-row"><span class="tt-label">Source</span><span class="tt-val" style="color:#FFD800">${mem.type}</span></div>
                         <div class="tt-row"><span class="tt-label">Resonance</span><span class="tt-val">${mem.resonance.toFixed(3)}</span></div>
                         <div class="tt-row"><span class="tt-label">Energy</span><span class="tt-val">${mem.energy.toFixed(3)}</span></div>
-                        <div class="tt-row"><span class="tt-label">Type</span><span class="tt-val">${mem.type}</span></div>
-                        <div class="tt-row"><span class="tt-label">XYZ</span><span class="tt-val">(${mem.x.toFixed(2)}, ${mem.y.toFixed(2)}, ${mem.z.toFixed(2)})</span></div>
+                        <div class="tt-row"><span class="tt-label">Meaning</span><span class="tt-val">${mem.meaning.toFixed(3)}</span></div>
+                        <div class="tt-row"><span class="tt-label">Spin</span><span class="tt-val">${mem.spinMag.toFixed(3)}</span></div>
                     `;
                     renderer.domElement.style.cursor = 'pointer';
                 } else {
@@ -742,27 +792,28 @@
                     <div style="color:#FFD800;font-weight:700;font-size:1.1em;margin-bottom:4px;">Memory Node</div>
                     <div style="color:#ccc;line-height:1.5;max-height:80px;overflow-y:auto;font-size:0.9em;">${(mem.content || 'No content').replace(/</g, '&lt;')}</div>
                 </div>
-                <h3>Position</h3>
-                <div class="stat-row"><span class="stat-label">X</span><span class="stat-value">${mem.x.toFixed(4)}</span></div>
-                <div class="stat-row"><span class="stat-label">Y</span><span class="stat-value">${mem.y.toFixed(4)}</span></div>
-                <div class="stat-row"><span class="stat-label">Z</span><span class="stat-value">${mem.z.toFixed(4)}</span></div>
-                <div class="stat-row"><span class="stat-label">r</span><span class="stat-value">${mem.r.toFixed(4)}</span></div>
-                <div class="stat-row"><span class="stat-label">φ</span><span class="stat-value">${mem.phi.toFixed(4)}</span></div>
-                <div class="stat-row"><span class="stat-label">θ</span><span class="stat-value">${mem.theta.toFixed(4)}</span></div>
+                <h3>Semantic Position (centered)</h3>
+                <div class="stat-row"><span class="stat-label">XYZ</span><span class="stat-value">(${mem.x.toFixed(3)}, ${mem.y.toFixed(3)}, ${mem.z.toFixed(3)})</span></div>
+                <h3>Raw Coordinates</h3>
+                <div class="stat-row"><span class="stat-label">Raw XYZ</span><span class="stat-value">(${(mem.rawX||0).toFixed(3)}, ${(mem.rawY||0).toFixed(3)}, ${(mem.rawZ||0).toFixed(3)})</span></div>
+                <div class="stat-row"><span class="stat-label">Sphere r,phi,theta</span><span class="stat-value">(${mem.r.toFixed(3)}, ${mem.phi.toFixed(3)}, ${mem.theta.toFixed(3)})</span></div>
                 <h3>Metrics</h3>
                 <div class="stat-row"><span class="stat-label">Resonance</span><span class="stat-value success">${mem.resonance.toFixed(4)}</span></div>
                 <div class="stat-row"><span class="stat-label">Energy</span><span class="stat-value warning">${mem.energy.toFixed(4)}</span></div>
-                <div class="stat-row"><span class="stat-label">Meaning</span><span class="stat-value">${mem.meaning.toFixed(4)}</span></div>
+                <div class="stat-row"><span class="stat-label">Meaning</span><span class="stat-value info">${mem.meaning.toFixed(4)}</span></div>
                 <div class="stat-row"><span class="stat-label">Intensity</span><span class="stat-value">${mem.intensity.toFixed(4)}</span></div>
                 <div class="stat-row"><span class="stat-label">Sentiment</span><span class="stat-value">${mem.sentiment.toFixed(4)}</span></div>
                 <h3>Spin Vector</h3>
                 <div class="stat-row"><span class="stat-label">Spin</span><span class="stat-value">(${mem.spinX.toFixed(3)}, ${mem.spinY.toFixed(3)}, ${mem.spinZ.toFixed(3)})</span></div>
                 <div class="stat-row"><span class="stat-label">Magnitude</span><span class="stat-value">${mem.spinMag.toFixed(4)}</span></div>
                 <h3>Identity</h3>
-                <div class="stat-row"><span class="stat-label">Cluster</span><span class="stat-value"><span class="cluster-badge cluster-${mem.cluster}">${mem.cluster}</span></span></div>
-                <div class="stat-row"><span class="stat-label">Type</span><span class="stat-value">${mem.type}</span></div>
-                ${mem.hash ? `<div class="stat-row"><span class="stat-label">Hash</span><span class="stat-value" style="font-size:0.7em;word-break:break-all;">${mem.hash.substring(0, 24)}...</span></div>` : ''}
+                <div class="stat-row"><span class="stat-label">Source</span><span class="stat-value info">${mem.type}</span></div>
+                <div class="stat-row"><span class="stat-label">Cluster</span><span class="stat-value">${mem.cluster}</span></div>
+                ${mem.hash ? `<div class="stat-row"><span class="stat-label">Hash</span><span class="stat-value" style="font-size:0.65em;word-break:break-all;">${mem.hash.substring(0, 20)}</span></div>` : ''}
+                ${mem.meaningHash ? `<div class="stat-row"><span class="stat-label">Meaning Hash</span><span class="stat-value" style="font-size:0.65em;">${mem.meaningHash.substring(0, 16)}</span></div>` : ''}
+                ${mem.universeId ? `<div class="stat-row"><span class="stat-label">Universe</span><span class="stat-value" style="font-size:0.65em;">${mem.universeId.substring(0, 16)}</span></div>` : ''}
                 ${mem.created ? `<div class="stat-row"><span class="stat-label">Created</span><span class="stat-value">${new Date(mem.created).toLocaleDateString()}</span></div>` : ''}
+                <div class="stat-row"><span class="stat-label">ID</span><span class="stat-value" style="font-size:0.65em;">${(mem.id || '').substring(0, 12)}</span></div>
             `;
             updateToolbar();
         }
@@ -774,8 +825,10 @@
                     mesh.material.emissiveIntensity = 0.5;
                     mesh.scale.setScalar(2);
                 } else {
-                    mesh.material.emissive = new THREE.Color(0x000000);
-                    mesh.material.emissiveIntensity = 0;
+                    const mem = filteredMemories[i];
+                    const c = mem ? getColor(mem) : 0x444455;
+                    mesh.material.emissive = new THREE.Color(c);
+                    mesh.material.emissiveIntensity = mem ? (0.08 + mem.meaning * 0.2) : 0.08;
                     mesh.scale.setScalar(1);
                 }
             });
@@ -815,17 +868,21 @@
                     return 'unclustered';
                 };
 
-                memories = (Array.isArray(data) ? data : []).map(m => ({
+                const rawList = Array.isArray(data) ? data : [];
+
+                // Parse raw records
+                const rawMems = rawList.map(m => ({
                     id: m.id,
                     content: m.context || m.anchor_text || '',
                     type: m.anchor_type || m.source || 'chat',
-                    x: toNum(m.xyz_x, 0),
-                    y: toNum(m.xyz_y, 0),
-                    z: toNum(m.xyz_z, 0),
+                    rawX: toNum(m.xyz_x, 0.5),
+                    rawY: toNum(m.xyz_y, 0.5),
+                    rawZ: toNum(m.xyz_z, 0.5),
                     r: toNum(m.sphere_r, 1),
                     phi: toNum(m.sphere_phi, 0),
                     theta: toNum(m.sphere_theta, 0),
-                    resonance: clamp(m.resonance_score ?? m.normalized_resonance ?? 0.5),
+                    // Use normalized_resonance (0-1) as primary, raw resonance as fallback scaled
+                    resonance: clamp(m.normalized_resonance ?? (m.resonance_score != null ? m.resonance_score / 3.0 : 0.5)),
                     energy: clamp(m.anchor_energy ?? 0),
                     spinX: toNum(m.spin_x, 0),
                     spinY: toNum(m.spin_y, 0),
@@ -836,8 +893,44 @@
                     sentiment: clamp(m.sentiment_score ?? 0.5),
                     cluster: normCluster(m.cluster_name),
                     hash: m.anchor_hash || '',
+                    meaningHash: m.meaning_hash || '',
+                    energyHash: m.energy_hash || '',
+                    spinHash: m.spin_hash || '',
+                    universeId: m.universe_id || '',
                     created: m.created_at || null,
                 }));
+
+                // Compute centered XYZ: shift to mean=0, scale to fill sphere radius
+                if (rawMems.length) {
+                    const meanX = rawMems.reduce((s, m) => s + m.rawX, 0) / rawMems.length;
+                    const meanY = rawMems.reduce((s, m) => s + m.rawY, 0) / rawMems.length;
+                    const meanZ = rawMems.reduce((s, m) => s + m.rawZ, 0) / rawMems.length;
+                    let maxDist = 0;
+                    rawMems.forEach(m => {
+                        const dx = m.rawX - meanX, dy = m.rawY - meanY, dz = m.rawZ - meanZ;
+                        maxDist = Math.max(maxDist, Math.sqrt(dx*dx + dy*dy + dz*dz));
+                    });
+                    const scale = maxDist > 0.001 ? 1.0 / maxDist : 1.0; // normalize to unit sphere
+                    rawMems.forEach(m => {
+                        m.x = (m.rawX - meanX) * scale;
+                        m.y = (m.rawY - meanY) * scale;
+                        m.z = (m.rawZ - meanZ) * scale;
+                    });
+
+                    // Compute ageNorm: 0=oldest, 1=newest
+                    const timestamps = rawMems.filter(m => m.created).map(m => new Date(m.created).getTime());
+                    if (timestamps.length > 1) {
+                        const minT = Math.min(...timestamps), maxT = Math.max(...timestamps);
+                        const rangeT = maxT - minT || 1;
+                        rawMems.forEach(m => {
+                            m.ageNorm = m.created ? (new Date(m.created).getTime() - minT) / rangeT : 0;
+                        });
+                    } else {
+                        rawMems.forEach(m => { m.ageNorm = 0.5; });
+                    }
+                }
+
+                memories = rawMems;
 
                 document.getElementById('loading-text').textContent = `Rendering ${memories.length} memories...`;
 
@@ -876,7 +969,7 @@
             connectionLines = [];
             spinArrows = [];
 
-            const scaleFactor = 22;
+            const R = 11; // sphere radius — matches wireframe
 
             filteredMemories.forEach((mem, i) => {
                 const size = getSize(mem);
@@ -886,28 +979,38 @@
                 const mat = new THREE.MeshStandardMaterial({
                     color: color,
                     emissive: color,
-                    emissiveIntensity: 0.1 + mem.resonance * 0.15,
+                    emissiveIntensity: 0.08 + mem.meaning * 0.2,
                     metalness: 0.35,
                     roughness: 0.3,
                     transparent: true,
-                    opacity: 0.8 + mem.resonance * 0.2,
+                    opacity: 0.6 + mem.resonance * 0.4,
                 });
                 const mesh = new THREE.Mesh(geo, mat);
 
                 let px, py, pz;
                 if (viewMode === 'sphere') {
-                    px = mem.x * scaleFactor;
-                    py = mem.y * scaleFactor;
-                    pz = mem.z * scaleFactor;
+                    // XYZ already centered & normalized to unit sphere — scale to display radius
+                    px = mem.x * R;
+                    py = mem.y * R;
+                    pz = mem.z * R;
                 } else if (viewMode === 'cluster') {
-                    const cOffset = { alpha: -8, beta: 0, gamma: 8 };
-                    px = (cOffset[mem.cluster] || 0) + mem.x * 4;
-                    py = mem.y * 6;
-                    pz = mem.z * 4;
+                    // Group by SOURCE type — spread each source into its own zone
+                    const srcOrder = ['resonant-chat', 'project', 'agentic_assistant', 'rag', 'resonant-chat-history', 'ide_upload'];
+                    const idx = srcOrder.indexOf(mem.type);
+                    const angle = ((idx >= 0 ? idx : 6) / 7) * Math.PI * 2;
+                    const clusterR = 10;
+                    const cx = Math.cos(angle) * clusterR;
+                    const cz = Math.sin(angle) * clusterR;
+                    // Scatter within cluster using XYZ
+                    px = cx + mem.x * 3;
+                    py = mem.y * 5;
+                    pz = cz + mem.z * 3;
                 } else { // timeline
-                    px = i * 0.05 - filteredMemories.length * 0.025;
-                    py = mem.resonance * 8;
-                    pz = mem.energy * 5;
+                    // X = time (ageNorm), Y = resonance, Z = energy
+                    const timeSpan = 30;
+                    px = (mem.ageNorm || 0) * timeSpan - timeSpan / 2;
+                    py = mem.resonance * 8 - 4;
+                    pz = mem.energy * 5 - 2.5;
                 }
 
                 mesh.position.set(px, py, pz);
@@ -982,13 +1085,20 @@
 
             document.getElementById('s-total').textContent = memories.length.toLocaleString();
             document.getElementById('s-visible').textContent = n.toLocaleString();
-            document.getElementById('s-alpha').textContent = mems.filter(m => m.cluster === 'alpha').length;
-            document.getElementById('s-beta').textContent = mems.filter(m => m.cluster === 'beta').length;
-            document.getElementById('s-gamma').textContent = mems.filter(m => m.cluster === 'gamma').length;
-            document.getElementById('s-delta').textContent = mems.filter(m => m.cluster === 'delta').length;
-            document.getElementById('s-epsilon').textContent = mems.filter(m => m.cluster === 'epsilon').length;
-            document.getElementById('s-zeta').textContent = mems.filter(m => m.cluster === 'zeta').length;
-            document.getElementById('s-unclust').textContent = mems.filter(m => m.cluster === 'unclustered').length;
+
+            // Source breakdown — count each source type
+            const srcCounts = {};
+            mems.forEach(m => { srcCounts[m.type] = (srcCounts[m.type] || 0) + 1; });
+            const srcNames = { 'resonant-chat': 'Chat', 'project': 'Project', 'agentic_assistant': 'Agent', 'rag': 'RAG',
+                'resonant-chat-history': 'History', 'ide_upload': 'IDE', 'agent_engine': 'Agent', 'agent_architect': 'Architect',
+                'chat': 'Chat', 'code_visualizer': 'Code Viz', 'user-profile': 'Profile' };
+            const srcColors = { 'resonant-chat': '#FFD800', 'project': '#01A6BC', 'agentic_assistant': '#71C23E',
+                'rag': '#FA547C', 'resonant-chat-history': '#FAA525', 'ide_upload': '#FFFFFF', 'chat': '#FFD800' };
+            const sorted = Object.entries(srcCounts).sort((a, b) => b[1] - a[1]);
+            const el = document.getElementById('s-source-breakdown');
+            el.innerHTML = sorted.map(([src, cnt]) =>
+                `<div class="stat-row"><span class="stat-label">${srcNames[src] || src}</span><span class="stat-value" style="color:${srcColors[src] || '#888'}">${cnt}</span></div>`
+            ).join('');
 
             const avgRes = mems.reduce((s, m) => s + m.resonance, 0) / n;
             const maxRes = Math.max(...mems.map(m => m.resonance));
@@ -998,8 +1108,10 @@
             document.getElementById('s-min-res').textContent = minRes.toFixed(3);
 
             const avgEnergy = mems.reduce((s, m) => s + m.energy, 0) / n;
+            const avgMeaning = mems.reduce((s, m) => s + m.meaning, 0) / n;
             const totalSpin = mems.reduce((s, m) => s + m.spinMag, 0);
             document.getElementById('s-avg-energy').textContent = avgEnergy.toFixed(3);
+            document.getElementById('s-avg-meaning').textContent = avgMeaning.toFixed(3);
             document.getElementById('s-total-spin').textContent = totalSpin.toFixed(1);
 
             const avgSent = mems.reduce((s, m) => s + m.sentiment, 0) / n;
@@ -1161,11 +1273,10 @@
             controls.update();
 
             const N = particleMeshes.length;
-            const G = 0.0003;  // gravitational constant (subtle)
-            const springK = 0.02;  // spring back to base position
-            const damping = 0.92;  // velocity damping
+            const springK = 0.015;  // spring back to base position
+            const damping = 0.90;  // velocity damping
 
-            // ─── Physics: gravity + spring + spin ───
+            // ─── Physics: spring-back + spin drift + sentiment sway ───
             for (let i = 0; i < N; i++) {
                 const mesh = particleMeshes[i];
                 const mem = filteredMemories[i];
@@ -1174,38 +1285,26 @@
                 let base = basePositions[i];
                 if (!vel || !base) continue;
 
-                // Gravitational attraction to nearby high-resonance nodes
                 let fx = 0, fy = 0, fz = 0;
-                for (let j = 0; j < N; j++) {
-                    if (i === j) continue;
-                    const other = particleMeshes[j];
-                    const omem = filteredMemories[j];
-                    if (!other || !omem) continue;
-                    const dx = other.position.x - mesh.position.x;
-                    const dy = other.position.y - mesh.position.y;
-                    const dz = other.position.z - mesh.position.z;
-                    const distSq = dx * dx + dy * dy + dz * dz + 0.5;
-                    if (distSq > 100) continue;  // skip distant pairs
-                    const mass = 0.5 + omem.resonance * 2;
-                    const force = G * mass / distSq;
-                    const dist = Math.sqrt(distSq);
-                    fx += force * dx / dist;
-                    fy += force * dy / dist;
-                    fz += force * dz / dist;
-                }
 
-                // Spring force back to base position
+                // Spring force back to semantic base position
                 fx += (base.x - mesh.position.x) * springK;
                 fy += (base.y - mesh.position.y) * springK;
                 fz += (base.z - mesh.position.z) * springK;
 
-                // Spin-induced tangential drift
+                // Spin-induced tangential orbit (cross product with radial)
                 if (mem.spinMag > 0.01) {
-                    const spinF = mem.spinMag * 0.005;
-                    fx += mem.spinZ * spinF;
-                    fy += mem.spinX * spinF;
-                    fz += mem.spinY * spinF;
+                    const px = mesh.position.x, py = mesh.position.y, pz = mesh.position.z;
+                    const r = Math.sqrt(px*px + py*py + pz*pz) + 0.01;
+                    // Tangential force perpendicular to radial direction
+                    const spinF = mem.spinMag * 0.003;
+                    fx += (-pz / r) * spinF;
+                    fz += (px / r) * spinF;
+                    fy += mem.spinZ * 0.001; // vertical drift from spin_z
                 }
+
+                // Sentiment sway: positive sentiment drifts up, negative drifts down
+                fy += (mem.sentiment - 0.5) * 0.002;
 
                 vel.vx = (vel.vx + fx) * damping;
                 vel.vy = (vel.vy + fy) * damping;
