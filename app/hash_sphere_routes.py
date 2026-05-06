@@ -105,6 +105,22 @@ async def extract_hash_sphere_memories(
     # Convert user_id/org_id to UUID if provided
     user_uuid = uuid.UUID(request.user_id) if request.user_id else None
     org_uuid = uuid.UUID(request.org_id) if request.org_id else None
+
+    # PATCH B: session scoping — narrow candidates to this conversation when provided
+    session_uuid = None
+    if getattr(request, "session_id", None):
+        try:
+            session_uuid = uuid.UUID(request.session_id)
+        except (ValueError, TypeError):
+            session_uuid = None
+
+    # PATCH A: relevance floor (env override) — discards low-score noise
+    min_score = request.min_score
+    if min_score is None:
+        try:
+            min_score = float(os.getenv("MIN_HYBRID_SCORE", "0.35"))
+        except (ValueError, TypeError):
+            min_score = 0.35
     
     # ============================================
     # METHOD 1: Anchor-based lookup (PRIORITY 1)
@@ -118,6 +134,8 @@ async def extract_hash_sphere_memories(
                 )
                 if user_uuid:
                     stmt = stmt.where(MemoryRecord.user_id == user_uuid)
+                if session_uuid:
+                    stmt = stmt.where(MemoryRecord.chat_id == session_uuid)
                 
                 result = await session.execute(stmt)
                 anchor_records = result.scalars().all()
@@ -155,6 +173,8 @@ async def extract_hash_sphere_memories(
             ).limit(200)
             if user_uuid:
                 stmt = stmt.where(MemoryRecord.user_id == user_uuid)
+            if session_uuid:
+                stmt = stmt.where(MemoryRecord.chat_id == session_uuid)
             
             result = await session.execute(stmt)
             records = result.scalars().all()
@@ -197,6 +217,8 @@ async def extract_hash_sphere_memories(
                 emb_stmt = select(MemoryEmbedding).limit(200)
                 if user_uuid:
                     emb_stmt = emb_stmt.where(MemoryEmbedding.user_id == user_uuid)
+                if session_uuid and hasattr(MemoryEmbedding, "chat_id"):
+                    emb_stmt = emb_stmt.where(MemoryEmbedding.chat_id == session_uuid)
                 
                 emb_result = await session.execute(emb_stmt)
                 emb_records = emb_result.scalars().all()
@@ -214,6 +236,8 @@ async def extract_hash_sphere_memories(
                         rec_stmt = select(MemoryRecord).where(
                             MemoryRecord.id.in_(mem_ids_to_load)
                         )
+                        if session_uuid:
+                            rec_stmt = rec_stmt.where(MemoryRecord.chat_id == session_uuid)
                         rec_result = await session.execute(rec_stmt)
                         rec_records = rec_result.scalars().all()
                         
@@ -256,6 +280,8 @@ async def extract_hash_sphere_memories(
                 ).limit(200)
                 if user_uuid:
                     stmt = stmt.where(MemoryRecord.user_id == user_uuid)
+                if session_uuid:
+                    stmt = stmt.where(MemoryRecord.chat_id == session_uuid)
                 
                 result = await session.execute(stmt)
                 records = result.scalars().all()
@@ -392,6 +418,31 @@ async def extract_hash_sphere_memories(
     # ============================================
     from .services.hybrid_memory_ranker import rank_memories
     
+    # Session scope filter: drop any memory not in the current chat session
+    if session_uuid and all_memories:
+        try:
+            mem_uuids = []
+            for mid in all_memories.keys():
+                if not mid:
+                    continue
+                try:
+                    mem_uuids.append(uuid.UUID(mid))
+                except (ValueError, TypeError):
+                    continue
+            if mem_uuids:
+                scope_stmt = select(MemoryRecord.id).where(
+                    MemoryRecord.id.in_(mem_uuids),
+                    MemoryRecord.chat_id == session_uuid,
+                )
+                scope_result = await session.execute(scope_stmt)
+                allowed_ids = {str(row[0]) for row in scope_result.all()}
+                all_memories = {
+                    mid: m for mid, m in all_memories.items()
+                    if mid in allowed_ids
+                }
+        except Exception:
+            pass
+
     memories_list = list(all_memories.values())
     
     # Normalize BM25 scores to 0-1 range
@@ -419,6 +470,14 @@ async def extract_hash_sphere_memories(
                 mem["recency_score"] = 0.5
     
     ranked_memories = rank_memories(memories_list)
+
+    # PATCH A: drop low-relevance noise (below min_score)
+    if min_score and min_score > 0:
+        ranked_memories = [
+            m for m in ranked_memories
+            if float(m.get("hybrid_score", 0.0)) >= min_score
+        ]
+
     top_memories = ranked_memories[:request.limit]
     
     response_memories = []

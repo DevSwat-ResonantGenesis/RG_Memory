@@ -103,6 +103,8 @@ class HashSphereExtractRequest(BaseModel):
     user_id: Optional[str] = None
     org_id: Optional[str] = None
     agent_hash: Optional[str] = None
+    session_id: Optional[str] = None  # Conversation scope → MemoryRecord.chat_id
+    min_score: Optional[float] = None  # Hybrid-score floor (defaults to env MIN_HYBRID_SCORE)
     limit: int = 10
     use_anchors: bool = True
     use_proximity: bool = True
