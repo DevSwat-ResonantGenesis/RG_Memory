@@ -166,8 +166,8 @@ async def ingest_memory(
     # Anchors enable fast keyword-based memory lookup (PRIORITY 1 in extraction)
     if len(payload.content) >= 15 and user_uuid and org_uuid:
         try:
-            anchor_keywords = resonance_hasher.extract_anchors(payload.content, max_anchors=3)
-            for keyword in anchor_keywords:
+            anchor_keywords = resonance_hasher.extract_anchors(payload.content)
+            for keyword in anchor_keywords[:3]:
                 anchor_coords = ResonanceHasher.compute_full_coordinates(keyword)
                 anchor = MemoryAnchor(
                     user_id=user_uuid,

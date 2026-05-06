@@ -93,7 +93,7 @@ class ResonanceHasher:
         
         return (positive_count / total) * 0.5 + 0.25
     
-    def extract_anchors(self, text: str, max_anchors: int = 10) -> List[str]:
+    def extract_anchors(self, text: str) -> List[str]:
         """Extract semantic anchors from text."""
         anchors = []
         text_lower = text.lower()
@@ -104,9 +104,9 @@ class ResonanceHasher:
 
         # Also extract capitalized phrases as potential anchors
         caps_phrases = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', text)
-        anchors.extend([p.lower() for p in caps_phrases])
+        anchors.extend([p.lower() for p in caps_phrases[:5]])
 
-        return list(set(anchors))[:max_anchors]
+        return list(set(anchors))[:10]
     
     def calculate_resonance(self, hash1: str, hash2: str) -> float:
         """Calculate resonance score between two hashes (LEGACY — hash Hamming).
