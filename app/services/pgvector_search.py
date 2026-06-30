@@ -154,14 +154,14 @@ class PgVectorSearch:
                     mr.xyz_z,
                     mr.resonance_score,
                     mr.extra_metadata,
-                    1 - (me.embedding <=> :query_embedding::vector) as similarity
+                    1 - (me.embedding <=> CAST(:query_embedding AS vector)) as similarity
                 FROM memory_embeddings me
                 JOIN memory_records mr ON me.memory_id = mr.id
                 WHERE 1=1 {user_filter} {org_filter} {agent_filter} {agent_hash_null_filter} {user_id_null_filter}
-                    AND (mr.extra_metadata IS NULL 
-                         OR mr.extra_metadata->>'is_archived' IS NULL 
+                    AND (mr.extra_metadata IS NULL
+                         OR mr.extra_metadata->>'is_archived' IS NULL
                          OR mr.extra_metadata->>'is_archived' = 'false')
-                ORDER BY me.embedding <=> :query_embedding::vector
+                ORDER BY me.embedding <=> CAST(:query_embedding AS vector)
                 LIMIT :limit
             """)
             
@@ -352,11 +352,11 @@ class PgVectorSearch:
                     SELECT 'user_overlay' AS scope, me.memory_id::text, mr.content, mr.hash,
                            mr.user_id::text AS record_user_id, mr.agent_hash AS record_agent_hash,
                            mr.xyz_x, mr.xyz_y, mr.xyz_z, mr.resonance_score, mr.extra_metadata,
-                           1 - (me.embedding <=> :query_embedding::vector) AS similarity
+                           1 - (me.embedding <=> CAST(:query_embedding AS vector)) AS similarity
                     FROM memory_embeddings me
                     JOIN memory_records mr ON me.memory_id = mr.id
                     WHERE me.user_id = :uid AND mr.agent_hash = :ahash {archive_filter}
-                    ORDER BY me.embedding <=> :query_embedding::vector LIMIT :lim
+                    ORDER BY me.embedding <=> CAST(:query_embedding AS vector) LIMIT :lim
                 """)
                 params["uid"] = user_id
                 params["ahash"] = agent_hash
@@ -366,11 +366,11 @@ class PgVectorSearch:
                     SELECT 'user_global' AS scope, me.memory_id::text, mr.content, mr.hash,
                            mr.user_id::text AS record_user_id, mr.agent_hash AS record_agent_hash,
                            mr.xyz_x, mr.xyz_y, mr.xyz_z, mr.resonance_score, mr.extra_metadata,
-                           1 - (me.embedding <=> :query_embedding::vector) AS similarity
+                           1 - (me.embedding <=> CAST(:query_embedding AS vector)) AS similarity
                     FROM memory_embeddings me
                     JOIN memory_records mr ON me.memory_id = mr.id
                     WHERE me.user_id = :uid2 AND mr.agent_hash IS NULL {archive_filter}
-                    ORDER BY me.embedding <=> :query_embedding::vector LIMIT :lim
+                    ORDER BY me.embedding <=> CAST(:query_embedding AS vector) LIMIT :lim
                 """)
                 params["uid2"] = user_id
 
@@ -379,11 +379,11 @@ class PgVectorSearch:
                     SELECT 'agent_global' AS scope, me.memory_id::text, mr.content, mr.hash,
                            mr.user_id::text AS record_user_id, mr.agent_hash AS record_agent_hash,
                            mr.xyz_x, mr.xyz_y, mr.xyz_z, mr.resonance_score, mr.extra_metadata,
-                           1 - (me.embedding <=> :query_embedding::vector) AS similarity
+                           1 - (me.embedding <=> CAST(:query_embedding AS vector)) AS similarity
                     FROM memory_embeddings me
                     JOIN memory_records mr ON me.memory_id = mr.id
                     WHERE me.org_id = :oid AND mr.agent_hash = :ahash_g AND mr.user_id IS NULL {archive_filter}
-                    ORDER BY me.embedding <=> :query_embedding::vector LIMIT :lim
+                    ORDER BY me.embedding <=> CAST(:query_embedding AS vector) LIMIT :lim
                 """)
                 params["oid"] = org_id
                 params["ahash_g"] = agent_hash

@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import get_session
 from .embeddings import embeddings_generator
-from .models import MemoryRecord, MemoryEmbedding
+from .models import MemoryRecord, MemoryEmbedding, MemoryAnchor
 from .services import resonance_hasher
 from .services.resonance_hashing import ResonanceHasher
 from .services.memory_encryption import memory_encryption, encrypt_memory_content, decrypt_memory_content
