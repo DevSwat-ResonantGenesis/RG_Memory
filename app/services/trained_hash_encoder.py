@@ -76,7 +76,9 @@ def _load_encoder():
     try:
         checkpoint = torch.load(MODEL_PATH, map_location="cpu", weights_only=False)
         net = EncoderNetwork()
-        if "encoder" in checkpoint:
+        if "encoder_state_dict" in checkpoint:
+            net.load_state_dict(checkpoint["encoder_state_dict"], strict=False)
+        elif "encoder" in checkpoint:
             net.load_state_dict(checkpoint["encoder"], strict=False)
         else:
             net.load_state_dict(checkpoint, strict=False)

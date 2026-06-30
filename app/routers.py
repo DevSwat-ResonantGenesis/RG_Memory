@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 import httpx
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import select, func, and_, or_
+from sqlalchemy import select, func, and_, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import get_session
@@ -150,6 +150,13 @@ async def ingest_memory(
     session.add(record)
     await session.commit()
     await session.refresh(record)
+
+    # Overwrite search_tsv with plaintext — the INSERT trigger used the encrypted content
+    await session.execute(
+        text("UPDATE memory_records SET search_tsv = to_tsvector('english', :txt) WHERE id = :rid"),
+        {"txt": payload.content, "rid": record.id},
+    )
+    await session.commit()
 
     # Store the embedding in MemoryEmbedding table for vector search
     if ingest_embedding:

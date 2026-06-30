@@ -14,6 +14,8 @@ from dataclasses import dataclass
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .memory_encryption import decrypt_memory_content
+
 logger = logging.getLogger(__name__)
 
 
@@ -183,7 +185,7 @@ class PgVectorSearch:
                 if similarity >= min_similarity:
                     results.append(VectorSearchResult(
                         memory_id=row.memory_id,
-                        content=row.content,
+                        content=decrypt_memory_content(row.content),
                         similarity=similarity,
                         hash=row.hash,
                         xyz=(row.xyz_x, row.xyz_y, row.xyz_z) if row.xyz_x is not None else None,
@@ -194,7 +196,7 @@ class PgVectorSearch:
                             "record_agent_hash": row.record_agent_hash,
                         },
                     ))
-            
+
             logger.debug(f"pgvector search returned {len(results)} results")
             return results
             
@@ -401,7 +403,7 @@ class PgVectorSearch:
                     continue
                 vsr = VectorSearchResult(
                     memory_id=row.memory_id,
-                    content=row.content,
+                    content=decrypt_memory_content(row.content),
                     similarity=similarity,
                     hash=row.hash,
                     xyz=(row.xyz_x, row.xyz_y, row.xyz_z) if row.xyz_x is not None else None,
@@ -479,7 +481,7 @@ class PgVectorSearch:
             for row in rows:
                 results.append(VectorSearchResult(
                     memory_id=row.memory_id,
-                    content=row.content,
+                    content=decrypt_memory_content(row.content),
                     similarity=float(row.bm25_score) if row.bm25_score else 0.0,
                     hash=row.hash,
                     xyz=(row.xyz_x, row.xyz_y, row.xyz_z) if row.xyz_x is not None else None,
