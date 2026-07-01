@@ -63,5 +63,16 @@ confidence gate: top gravity high → answer from memory (no LLM); low → provi
     "December launch" memory (rag 0.13, gravity 0.08) purely via the mesh.
   - 3d TODO — knowledge crystallization (raw→daily→crystal) + periodic drift/
     merge job (needs a scheduler; drift/merge are immutability-sensitive → archive).
-- **4 — blockchain universe**: immutable per-relationship chains + evidence ledger; wire the memory_anchor tx that currently fires 0×.
+- **4 — blockchain universe**: PARTIAL 2026-07-01.
+  - DONE — on-chain proof-of-existence (hash_sphere_chain.py): every memory
+    anchored to the DSID distributed chain as tx_type='memory' (hashes only —
+    content_hash + 12-D position hash + relationship; content stays encrypted
+    off-chain). Fixed the endpoint (/distributed/transactions, not the 404'ing
+    /blockchain/transactions → why 0 tx ever recorded). tx_hash stored on the
+    record (extra_metadata.blockchain_tx, onchain=true). Verified: memories mined
+    into hash-chained blocks with merkle roots (block #2 seen). Relationship
+    typing user/agent/user_agent. Immutability enforced (rag_routes blocks
+    non-RAG deletes; archive-not-delete).
+  - 4b TODO — evidence ledger (E*=Σwᵢsᵢ per answer, hashed on-chain) + the
+    dual-class per-relationship chains (Class U / Class A) as first-class.
 - **5 — cognitive loop** (optional, LLM-gated).
