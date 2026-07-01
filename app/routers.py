@@ -25,7 +25,7 @@ from .services.pgvector_search import pgvector_search, VectorSearchResult
 from .services.fact_extraction import fact_extraction_service
 from .services.hash_sphere_core import encode_core, gravity as hs_gravity, core_from_stored
 from .services.hash_sphere_model import hash_sphere_model
-from .services import hash_sphere_anchors
+from .services import hash_sphere_anchors, hash_sphere_chain
 from .schemas import (
     MemoryIngestRequest,
     MemoryRecordResponse,
@@ -45,6 +45,46 @@ PREMIUM_AGENT_GLOBAL_FEATURE = "hash_sphere_access"
 
 
 router = APIRouter(prefix="/memory", tags=["memory"])
+
+
+async def _anchor_onchain_task(
+    memory_id: str,
+    content_hash: Optional[str],
+    position_hash: Optional[str],
+    user_id: Optional[str],
+    org_id: Optional[str],
+    agent_hash: Optional[str],
+    source: Optional[str],
+    dominant_cluster: Optional[str],
+) -> None:
+    """Background task: anchor the memory on-chain (hashes only) and store the
+    resulting tx_hash on the record as proof-of-existence. Best-effort."""
+    try:
+        tx_hash = await hash_sphere_chain.anchor_memory(
+            memory_id=memory_id,
+            content_hash=content_hash,
+            position_hash=position_hash,
+            user_id=user_id,
+            org_id=org_id,
+            agent_hash=agent_hash,
+            source=source,
+            dominant_cluster=dominant_cluster,
+        )
+        if not tx_hash:
+            return
+        async with async_session() as s:
+            await s.execute(
+                text(
+                    "UPDATE memory_records SET extra_metadata = "
+                    "COALESCE(extra_metadata, '{}'::jsonb) || jsonb_build_object("
+                    "'blockchain_tx', :tx, 'onchain', true) WHERE id = :rid"
+                ),
+                {"tx": tx_hash, "rid": memory_id},
+            )
+            await s.commit()
+        logger.info("Anchored memory %s on-chain: %s", memory_id, tx_hash[:16])
+    except Exception as e:
+        logger.debug("On-chain anchor task failed: %s", e)
 
 
 async def _extract_facts_task(
@@ -260,33 +300,9 @@ async def ingest_memory(
                 session.add(anchor)
             await session.commit()
 
-            # Record memory anchors as blockchain transactions (fire-and-forget)
-            try:
-                async with httpx.AsyncClient(timeout=3.0) as http_client:
-                    for keyword in anchor_keywords:
-                        anchor_coords = ResonanceHasher.compute_full_coordinates(keyword)
-                        anchor_hash = ResonanceHasher.hash_text_deterministic(keyword)
-                        await http_client.post(
-                            f"{BLOCKCHAIN_SERVICE_URL}/blockchain/transactions",
-                            json={
-                                "tx_type": "memory_anchor",
-                                "payload": {
-                                    "anchor_hash": anchor_hash,
-                                    "anchor_text": keyword[:100],
-                                    "xyz_x": round(anchor_coords.x, 6),
-                                    "xyz_y": round(anchor_coords.y, 6),
-                                    "xyz_z": round(anchor_coords.z, 6),
-                                    "source": payload.source,
-                                    "user_id": str(user_uuid) if user_uuid else None,
-                                    "chat_id": str(chat_uuid) if chat_uuid else None,
-                                },
-                                "from_dsid": None,
-                                "to_dsid": None,
-                            },
-                        )
-                logger.info("Recorded %d memory anchors as blockchain transactions", len(anchor_keywords))
-            except Exception as bc_err:
-                logger.debug("Blockchain anchor recording skipped: %s", bc_err)
+            # (On-chain anchoring is now per-memory via _anchor_onchain_task,
+            # scheduled below — proof-of-existence for the whole memory, not just
+            # keyword anchors, and posted to the correct /distributed endpoint.)
 
         except Exception as e:
             logger.warning(f"Anchor creation failed (non-critical): {e}")
@@ -306,6 +322,21 @@ async def ingest_memory(
             user_uuid,
             org_uuid,
             payload.agent_hash,
+        )
+
+    # RFC-0002 Wave 4: anchor this memory on-chain (hashes only) for immutable
+    # proof-of-existence. Best-effort background task.
+    if background_tasks is not None:
+        background_tasks.add_task(
+            _anchor_onchain_task,
+            str(record.id),
+            content_hash,
+            hs_core.hash(),
+            str(user_uuid) if user_uuid else None,
+            str(org_uuid) if org_uuid else None,
+            payload.agent_hash,
+            payload.source,
+            hs_core.dominant_cluster,
         )
 
     # Return decrypted content in response with FULL Hash Sphere coordinates
