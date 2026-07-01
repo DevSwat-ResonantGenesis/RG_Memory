@@ -198,15 +198,25 @@ class HashSphereModel:
         return {"clusters": clusters, "temperature": temperature, "polarity": polarity}
 
     def _classify_word(self, e: List[float]) -> Dict:
-        """Classify a single (normalized) word embedding: nearest cluster + bipolar diffs.
+        """Classify a single (normalized) word embedding into a SOFT cluster
+        distribution + bipolar temperature/polarity diffs.
 
-        Word-vs-word-centroid is in-distribution (unlike sentence-vs-word-centroid),
-        so argmax cluster assignment is robust."""
+        Word-vs-word-centroid is in-distribution (unlike sentence-vs-word-centroid).
+        A soft distribution (standardized softmax) per word, averaged over the
+        sentence, gives a smooth, robust α…ζ — far less noisy than a hard-argmax
+        histogram over a handful of words."""
         sims = [_cos(e, self._cluster_centroids[k]) for k in _CLUSTER_KEYS]
-        cluster = max(range(len(sims)), key=lambda i: sims[i])
+        mean = sum(sims) / len(sims)
+        var = sum((s - mean) ** 2 for s in sims) / len(sims)
+        std = math.sqrt(var) or 1e-6
+        z = [(s - mean) / std for s in sims]
+        mx = max(z)
+        exps = [math.exp(_SOFTMAX_TEMP * (zi - mx)) for zi in z]
+        tot = sum(exps) or 1.0
+        dist = [x / tot for x in exps]
         warm = (_cos(e, self._warm) - _cos(e, self._cold)) if (self._warm and self._cold) else 0.0
         pos = (_cos(e, self._positive) - _cos(e, self._negative)) if (self._positive and self._negative) else 0.0
-        return {"cluster": cluster, "warm": warm, "pos": pos}
+        return {"dist": dist, "warm": warm, "pos": pos}
 
     async def axes_for_text(self, text: str, embeddings_generator) -> Optional[Dict]:
         """Word-level α…ζ / temperature / polarity for a text (the faithful design).
@@ -231,7 +241,7 @@ class HashSphereModel:
             for w, v in zip(missing, vecs):
                 self._word_cache[w] = self._classify_word(_normalize(v))
 
-        counts = [0] * 6
+        acc = [0.0] * 6
         warm_sum = 0.0
         pos_sum = 0.0
         n = 0
@@ -239,14 +249,15 @@ class HashSphereModel:
             wc = self._word_cache.get(w)
             if not wc:
                 continue
-            counts[wc["cluster"]] += 1
+            for i in range(6):
+                acc[i] += wc["dist"][i]
             warm_sum += wc["warm"]
             pos_sum += wc["pos"]
             n += 1
         if n == 0:
             return None
-        total = sum(counts) or 1
-        clusters = {k: counts[i] / total for i, k in enumerate(_CLUSTER_KEYS)}
+        total = sum(acc) or 1.0
+        clusters = {k: acc[i] / total for i, k in enumerate(_CLUSTER_KEYS)}
 
         def squash(x: float) -> float:
             return 1.0 / (1.0 + math.exp(-8.0 * x))
