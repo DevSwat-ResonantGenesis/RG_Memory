@@ -114,13 +114,17 @@ async def extract_hash_sphere_memories(
         except (ValueError, TypeError):
             session_uuid = None
 
-    # PATCH A: relevance floor (env override) — discards low-score noise
+    # Relevance floor (env override) — discards low-relevance noise.
+    # NOTE: this gates on SEMANTIC similarity (rag/resonance cosine, 0-1 range),
+    # NOT the RRF hybrid_score. RRF fusion scores max out around ~0.05, so the old
+    # 0.35 hybrid floor silently rejected 100% of results. RRF is used only for
+    # ordering; relevance is decided by actual cosine similarity.
     min_score = request.min_score
     if min_score is None:
         try:
-            min_score = float(os.getenv("MIN_HYBRID_SCORE", "0.35"))
+            min_score = float(os.getenv("MIN_SEMANTIC_SCORE", "0.25"))
         except (ValueError, TypeError):
-            min_score = 0.35
+            min_score = 0.25
     
     # ============================================
     # METHOD 1: Anchor-based lookup (PRIORITY 1)
@@ -471,11 +475,17 @@ async def extract_hash_sphere_memories(
     
     ranked_memories = rank_memories(memories_list)
 
-    # PATCH A: drop low-relevance noise (below min_score)
+    # Drop low-relevance noise: keep a memory only if its SEMANTIC similarity
+    # (best of RAG cosine or resonance-embedding cosine) clears the floor.
+    # This filters out proximity-only hits (XYZ is hash-derived noise) while
+    # RRF above still decides ordering among the relevant survivors.
     if min_score and min_score > 0:
         ranked_memories = [
             m for m in ranked_memories
-            if float(m.get("hybrid_score", 0.0)) >= min_score
+            if max(
+                float(m.get("rag_score", 0.0) or 0.0),
+                float(m.get("resonance_score", 0.0) or 0.0),
+            ) >= min_score
         ]
 
     top_memories = ranked_memories[:request.limit]
