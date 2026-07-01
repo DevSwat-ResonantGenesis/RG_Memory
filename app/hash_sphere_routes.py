@@ -456,11 +456,16 @@ async def extract_hash_sphere_memories(
     # ============================================
     try:
         if user_uuid and all_memories:
-            seeds = sorted(
+            # Seeds are only STRONG hits — so a weak-but-mesh-linked candidate
+            # (which would otherwise also be a seed and get self-excluded) can be
+            # rescued as their neighbor.
+            ranked_by_rag = sorted(
                 all_memories.values(),
                 key=lambda m: float(m.get("rag_score", 0.0) or 0.0),
                 reverse=True,
-            )[:3]
+            )
+            strong = [m for m in ranked_by_rag if float(m.get("rag_score", 0.0) or 0.0) >= 0.5]
+            seeds = (strong or ranked_by_rag[:1])[:3]
             seed_ids = [s["id"] for s in seeds if s.get("id")]
             # exclude only the seeds — a neighbor already weakly present must still
             # get its assoc_weight so the relevance gate keeps it.
