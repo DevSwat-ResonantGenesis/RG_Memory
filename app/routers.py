@@ -7,13 +7,14 @@ from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Request
 from sqlalchemy import select, func, and_, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .db import get_session
+from .config import settings
+from .db import get_session, async_session
 from .embeddings import embeddings_generator
-from .models import MemoryRecord, MemoryEmbedding, MemoryAnchor, EMBEDDING_DIM
+from .models import MemoryRecord, MemoryEmbedding, MemoryAnchor, MemoryFact, EMBEDDING_DIM
 from .services import resonance_hasher
 from .services.resonance_hashing import ResonanceHasher
 from .services.memory_encryption import memory_encryption, encrypt_memory_content, decrypt_memory_content
@@ -21,6 +22,7 @@ from .services.embedding_cache import embedding_cache
 from .services.performance_logger import perf_tracker, TimingContext
 from .services.semantic_cache import semantic_cache
 from .services.pgvector_search import pgvector_search, VectorSearchResult
+from .services.fact_extraction import fact_extraction_service
 from .schemas import (
     MemoryIngestRequest,
     MemoryRecordResponse,
@@ -42,9 +44,38 @@ PREMIUM_AGENT_GLOBAL_FEATURE = "hash_sphere_access"
 router = APIRouter(prefix="/memory", tags=["memory"])
 
 
+async def _extract_facts_task(
+    content: str,
+    memory_id: Optional[uuid.UUID],
+    user_uuid: Optional[uuid.UUID],
+    org_uuid: Optional[uuid.UUID],
+    agent_hash: Optional[str],
+) -> None:
+    """Background task: extract atomic facts from content and store them with
+    contradiction detection. Best-effort — opens its own session and never raises."""
+    try:
+        facts = await fact_extraction_service.extract(content)
+        if not facts:
+            return
+        async with async_session() as fact_session:
+            stored = await fact_extraction_service.store_facts(
+                fact_session,
+                facts,
+                memory_id=memory_id,
+                user_id=user_uuid,
+                org_id=org_uuid,
+                agent_hash=agent_hash,
+            )
+        if stored:
+            logger.info("Extracted and stored %d fact(s) from memory %s", stored, memory_id)
+    except Exception as e:
+        logger.warning("Fact extraction task failed (non-critical): %s", e)
+
+
 @router.post("/ingest", response_model=MemoryRecordResponse)
 async def ingest_memory(
     payload: MemoryIngestRequest,
+    background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
 ):
     """Ingest a memory record with FULL Hash Sphere coordinate system."""
@@ -231,6 +262,22 @@ async def ingest_memory(
 
         except Exception as e:
             logger.warning(f"Anchor creation failed (non-critical): {e}")
+
+    # Tier 2: extract atomic facts from this memory in the background (best-effort,
+    # never blocks or fails the ingest response).
+    if (
+        settings.ENABLE_FACT_EXTRACTION
+        and payload.content
+        and len(payload.content) >= settings.FACT_EXTRACTION_MIN_CHARS
+    ):
+        background_tasks.add_task(
+            _extract_facts_task,
+            payload.content,
+            record.id,
+            user_uuid,
+            org_uuid,
+            payload.agent_hash,
+        )
 
     # Return decrypted content in response with FULL Hash Sphere coordinates
     return MemoryRecordResponse(
@@ -800,6 +847,63 @@ async def delete_memory(
 async def encryption_status():
     """Get memory encryption service status."""
     return memory_encryption.get_status()
+
+
+@router.get("/facts")
+async def list_facts(
+    user_id: Optional[str] = None,
+    entity: Optional[str] = None,
+    attribute: Optional[str] = None,
+    include_superseded: bool = False,
+    limit: int = 100,
+    request: Request = None,
+    session: AsyncSession = Depends(get_session),
+):
+    """List LLM-extracted atomic facts for a user (Tier 2).
+
+    Returns active facts by default (contradiction-superseded ones excluded).
+    Optionally filter by entity/attribute or include superseded history.
+    """
+    if request and not user_id:
+        user_id = request.headers.get("x-user-id")
+
+    user_uuid = None
+    try:
+        user_uuid = uuid.UUID(user_id) if user_id else None
+    except Exception:
+        user_uuid = None
+    if not user_uuid:
+        return {"facts": [], "total": 0}
+
+    stmt = select(MemoryFact).where(MemoryFact.user_id == user_uuid)
+    if not include_superseded:
+        stmt = stmt.where(MemoryFact.status == "active")
+    if entity:
+        stmt = stmt.where(MemoryFact.entity == entity)
+    if attribute:
+        stmt = stmt.where(MemoryFact.attribute == attribute)
+    stmt = stmt.order_by(MemoryFact.confidence.desc(), MemoryFact.created_at.desc()).limit(min(limit, 500))
+
+    result = await session.execute(stmt)
+    rows = result.scalars().all()
+    return {
+        "facts": [
+            {
+                "id": str(f.id),
+                "fact": f.fact,
+                "entity": f.entity,
+                "attribute": f.attribute,
+                "value": f.value,
+                "confidence": f.confidence,
+                "status": f.status,
+                "superseded_by": str(f.superseded_by) if f.superseded_by else None,
+                "memory_id": str(f.memory_id) if f.memory_id else None,
+                "created_at": f.created_at.isoformat() if f.created_at else None,
+            }
+            for f in rows
+        ],
+        "total": len(rows),
+    }
 
 
 @router.get("/stats")

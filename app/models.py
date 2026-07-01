@@ -98,6 +98,41 @@ class MemoryRecord(Base):
     )
 
 
+class MemoryFact(Base):
+    """Atomic facts extracted from memories by an LLM at ingest (Tier 2).
+
+    A fact is a subject-attribute-value triple ("user | name | Louie") with a
+    natural-language form, a confidence, and a lifecycle status. Contradiction
+    detection supersedes an older fact when a newer one asserts a different
+    value for the same (user, entity, attribute).
+    """
+    __tablename__ = "memory_facts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    memory_id = Column(UUID(as_uuid=True), index=True, nullable=True)  # source memory
+    user_id = Column(UUID(as_uuid=True), index=True, nullable=True)
+    org_id = Column(UUID(as_uuid=True), index=True, nullable=True)
+    agent_hash = Column(String(64), index=True, nullable=True)
+
+    fact = Column(Text, nullable=False)            # natural-language statement
+    entity = Column(String(255), index=True, nullable=True)   # subject, e.g. "user"
+    attribute = Column(String(255), index=True, nullable=True)  # predicate, e.g. "name"
+    value = Column(Text, nullable=True)            # object, e.g. "Louie"
+    confidence = Column(Float, default=0.5)
+
+    status = Column(String(16), default="active", index=True)  # active | superseded
+    superseded_by = Column(UUID(as_uuid=True), nullable=True)   # fact that replaced this
+
+    fact_hash = Column(String(64), index=True, nullable=True)   # dedup key
+    extra_metadata = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index("ix_memory_facts_user_entity_attr", "user_id", "entity", "attribute"),
+    )
+
+
 class MemoryEmbedding(Base):
     """Store embeddings for vector similarity search."""
     __tablename__ = "memory_embeddings"

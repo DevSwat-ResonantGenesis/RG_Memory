@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     # LLM Service
     LLM_SERVICE_URL: str = "http://llm_service:8000"
 
+    # Tier 2: LLM fact extraction at ingest
+    ENABLE_FACT_EXTRACTION: bool = os.getenv("MEMORY_ENABLE_FACT_EXTRACTION", "true").lower() == "true"
+    FACT_EXTRACTION_MODEL: str = os.getenv("MEMORY_FACT_EXTRACTION_MODEL", "")  # blank = LLM_Service default
+    FACT_EXTRACTION_MIN_CHARS: int = 20  # skip trivially short content
+
     class Config:
         env_file = ".env"
         env_prefix = "MEMORY_"
