@@ -56,7 +56,12 @@ confidence gate: top gravity high → answer from memory (no LLM); low → provi
     (type='emergent', archive-not-delete). Retrieval boosts memories in a well
     the query shares. Verified: related memories formed a 2-member drifting
     well; anchor_field fires in retrieval.
-  - 3c TODO — self-organizing mesh (edges reinforce/decay/merge), knowledge
-    crystallization (raw→daily→crystal), periodic drift job.
+  - 3c DONE — self-organizing mesh (hash_sphere_mesh.py + memory_edges): co-
+    retrieved memories wire together (weight→1.0), lazy age-decay (0.97/day),
+    associative recall pulls mesh-linked memories into results even when direct
+    cosine/gravity miss them. Verified: a "rust workers" query surfaced a wired
+    "December launch" memory (rag 0.13, gravity 0.08) purely via the mesh.
+  - 3d TODO — knowledge crystallization (raw→daily→crystal) + periodic drift/
+    merge job (needs a scheduler; drift/merge are immutability-sensitive → archive).
 - **4 — blockchain universe**: immutable per-relationship chains + evidence ledger; wire the memory_anchor tx that currently fires 0×.
 - **5 — cognitive loop** (optional, LLM-gated).
