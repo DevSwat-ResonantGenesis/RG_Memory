@@ -197,23 +197,26 @@ def _resonance(dist: Dict[SemanticCluster, float], temperature: float,
     return max(-1.0, min(1.0, r / 3.0))
 
 
-def encode_core(text: str, embedding: Optional[List[float]] = None) -> HashSphereCore:
+def encode_core(text: str, embedding: Optional[List[float]] = None,
+                axes: Optional[dict] = None) -> HashSphereCore:
     """Compute the 12-D semantic core for a piece of text.
 
-    Wave 2: if the frozen prototype model is built and an embedding is provided,
-    α…ζ / temperature / polarity come from embedding-space similarity to the seed
-    prototypes (generalizes to the whole vocabulary). Otherwise fall back to the
-    Wave 1 seed-dictionary word counting (deterministic, works untrained).
+    Wave 2 axis priority for α…ζ / temperature / polarity:
+      1. `axes` — precomputed WORD-LEVEL classification (the robust, faithful path;
+         async callers pass hash_sphere_model.axes_for_text()).
+      2. sentence-embedding prototype similarity (model.predict) — coarser fallback.
+      3. Wave-1 seed-dictionary word counting (works untrained).
     Spin is always text-statistic based (intensity/complexity/abstraction).
     """
     tokens = _tokenize(text)
 
-    model_axes = None
-    try:
-        from .hash_sphere_model import hash_sphere_model
-        model_axes = hash_sphere_model.predict(embedding)
-    except Exception:
-        model_axes = None
+    model_axes = axes
+    if model_axes is None:
+        try:
+            from .hash_sphere_model import hash_sphere_model
+            model_axes = hash_sphere_model.predict(embedding)
+        except Exception:
+            model_axes = None
 
     if model_axes:
         c = model_axes["clusters"]

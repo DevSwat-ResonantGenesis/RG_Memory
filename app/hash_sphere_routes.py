@@ -456,11 +456,13 @@ async def extract_hash_sphere_memories(
     # Candidates were recalled by cosine+BM25 (the floor); the hash sphere now
     # does the real ranking: gravity = exp(-β·||q_core - m_core||²) in 12-D.
     # ============================================
+    q_axes = None
     try:
         await hash_sphere_model.ensure_built(embeddings_generator)
+        q_axes = await hash_sphere_model.axes_for_text(request.query, embeddings_generator)
     except Exception:
-        pass
-    query_core = encode_core(request.query, embedding=query_embedding)
+        q_axes = None
+    query_core = encode_core(request.query, embedding=query_embedding, axes=q_axes)
     query_metric = query_core.metric_vector()
     candidate_ids = []
     for m in memories_list:

@@ -126,11 +126,13 @@ async def ingest_memory(
     # RFC-0002 Wave 1/2: compute the 12-D SEMANTIC CORE — the memory's real
     # position in the hash sphere; drives retrieval. hash = quantized position.
     # Wave 2: ensure the prototype model is built so α…ζ generalize via embeddings.
+    hs_axes = None
     try:
         await hash_sphere_model.ensure_built(embeddings_generator)
+        hs_axes = await hash_sphere_model.axes_for_text(payload.content, embeddings_generator)
     except Exception:
-        pass
-    hs_core = encode_core(payload.content, embedding=ingest_embedding)
+        hs_axes = None
+    hs_core = encode_core(payload.content, embedding=ingest_embedding, axes=hs_axes)
     core_dict = hs_core.to_dict()
 
     # Deduplication: skip exact duplicate content for same user

@@ -28,12 +28,14 @@ async def gravity_for(a, b, use_model):
     ea = (await embeddings_generator.generate([a], task="search_document"))[0]
     eb = (await embeddings_generator.generate([b], task="search_document"))[0]
     if not use_model:
-        # force Wave-1 path by passing no embedding to encode_core
+        # force Wave-1 path by passing no embedding / axes to encode_core
         ca = hsc.encode_core(a, embedding=None)
         cb = hsc.encode_core(b, embedding=None)
     else:
-        ca = hsc.encode_core(a, embedding=ea)
-        cb = hsc.encode_core(b, embedding=eb)
+        axa = await hash_sphere_model.axes_for_text(a, embeddings_generator)
+        axb = await hash_sphere_model.axes_for_text(b, embeddings_generator)
+        ca = hsc.encode_core(a, embedding=ea, axes=axa)
+        cb = hsc.encode_core(b, embedding=eb, axes=axb)
     return hsc.gravity(ca.metric_vector(), cb.metric_vector())
 
 

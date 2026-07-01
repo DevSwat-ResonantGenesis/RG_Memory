@@ -27,8 +27,11 @@ from __future__ import annotations
 import json
 import logging
 import math
+import re
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+_WORD_RE = re.compile(r"[a-z']{2,}")
 
 from .semantic_encoder import (
     CLUSTER_WORDS,
@@ -88,6 +91,9 @@ class HashSphereModel:
         self._positive: Optional[List[float]] = None
         self._negative: Optional[List[float]] = None
         self._built = False
+        # word → {"cluster": idx, "warm": diff, "pos": diff}. Grows as memories arrive;
+        # a word's semantic axis is stable, so this is a cheap permanent cache.
+        self._word_cache: Dict[str, Dict] = {}
 
     @property
     def ready(self) -> bool:
@@ -190,6 +196,66 @@ class HashSphereModel:
         temperature = bipolar(self._warm, self._cold)
         polarity = bipolar(self._positive, self._negative)
         return {"clusters": clusters, "temperature": temperature, "polarity": polarity}
+
+    def _classify_word(self, e: List[float]) -> Dict:
+        """Classify a single (normalized) word embedding: nearest cluster + bipolar diffs.
+
+        Word-vs-word-centroid is in-distribution (unlike sentence-vs-word-centroid),
+        so argmax cluster assignment is robust."""
+        sims = [_cos(e, self._cluster_centroids[k]) for k in _CLUSTER_KEYS]
+        cluster = max(range(len(sims)), key=lambda i: sims[i])
+        warm = (_cos(e, self._warm) - _cos(e, self._cold)) if (self._warm and self._cold) else 0.0
+        pos = (_cos(e, self._positive) - _cos(e, self._negative)) if (self._positive and self._negative) else 0.0
+        return {"cluster": cluster, "warm": warm, "pos": pos}
+
+    async def axes_for_text(self, text: str, embeddings_generator) -> Optional[Dict]:
+        """Word-level α…ζ / temperature / polarity for a text (the faithful design).
+
+        Each content word is classified to its nearest cluster centroid; the
+        sentence distribution is the normalized histogram of word clusters.
+        Words are embedded once and cached. Returns None if the model isn't built.
+        """
+        if not self._built:
+            return None
+        words = _WORD_RE.findall((text or "").lower())
+        if not words:
+            return None
+        uniq = list(dict.fromkeys(words))
+        missing = [w for w in uniq if w not in self._word_cache]
+        if missing:
+            try:
+                vecs = await embeddings_generator.generate(missing, task="search_document")
+            except Exception as e:
+                logger.warning("axes_for_text: word embed failed: %s", e)
+                return None
+            for w, v in zip(missing, vecs):
+                self._word_cache[w] = self._classify_word(_normalize(v))
+
+        counts = [0] * 6
+        warm_sum = 0.0
+        pos_sum = 0.0
+        n = 0
+        for w in words:
+            wc = self._word_cache.get(w)
+            if not wc:
+                continue
+            counts[wc["cluster"]] += 1
+            warm_sum += wc["warm"]
+            pos_sum += wc["pos"]
+            n += 1
+        if n == 0:
+            return None
+        total = sum(counts) or 1
+        clusters = {k: counts[i] / total for i, k in enumerate(_CLUSTER_KEYS)}
+
+        def squash(x: float) -> float:
+            return 1.0 / (1.0 + math.exp(-8.0 * x))
+
+        return {
+            "clusters": clusters,
+            "temperature": squash(warm_sum / n),
+            "polarity": squash(pos_sum / n),
+        }
 
 
 hash_sphere_model = HashSphereModel()
