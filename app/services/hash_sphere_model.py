@@ -48,7 +48,11 @@ _CLUSTER_ORDER = [
     SemanticCluster.DELTA, SemanticCluster.EPSILON, SemanticCluster.ZETA,
 ]
 _CLUSTER_KEYS = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta"]
-_SOFTMAX_TEMP = 12.0  # sharpness of the α…ζ softmax over cosine sims
+# Sentence-vs-word-centroid cosines are compressed into a narrow band, so we
+# STANDARDIZE the 6 sims (z-score) before softmax to amplify RELATIVE cluster
+# affinity — otherwise unrelated texts get near-identical distributions and thus
+# spuriously high gravity. Temp applies to the standardized scores.
+_SOFTMAX_TEMP = 2.5
 
 
 def _normalize(v: List[float]) -> List[float]:
@@ -163,10 +167,16 @@ class HashSphereModel:
             return None
         e = _normalize(list(embedding))
 
-        # α…ζ via softmax over cosine similarity to cluster centroids
+        # α…ζ via softmax over STANDARDIZED cosine similarity to cluster centroids.
+        # Standardizing (z-score) turns the compressed absolute cosines into
+        # relative affinities, so distinct topics land in distinct distributions.
         sims = [_cos(e, self._cluster_centroids[k]) for k in _CLUSTER_KEYS]
-        mx = max(sims)
-        exps = [math.exp(_SOFTMAX_TEMP * (s - mx)) for s in sims]
+        mean = sum(sims) / len(sims)
+        var = sum((s - mean) ** 2 for s in sims) / len(sims)
+        std = math.sqrt(var) or 1e-6
+        z = [(s - mean) / std for s in sims]
+        mx = max(z)
+        exps = [math.exp(_SOFTMAX_TEMP * (zi - mx)) for zi in z]
         total = sum(exps) or 1.0
         clusters = {k: exps[i] / total for i, k in enumerate(_CLUSTER_KEYS)}
 

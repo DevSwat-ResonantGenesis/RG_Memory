@@ -46,7 +46,7 @@ from .semantic_encoder import (
 # Fixed dimensionality (locked — no sprouting axes).
 METRIC_DIMS = 11          # dims 0-10 used for distance/gravity
 CORE_DIMS = 12            # incl. derived resonance (dim 11)
-_GRAVITY_BETA = 4.0       # RBF sharpness for gravity(): exp(-β·d²)
+_GRAVITY_BETA = 7.0       # RBF sharpness for gravity(): exp(-β·d²)
 _QUANTIZE_LEVELS = 12     # buckets per axis for the positional hash
 
 # Ordered cluster axes → dims 0-5
