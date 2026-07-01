@@ -24,6 +24,7 @@ from .services.semantic_cache import semantic_cache
 from .services.pgvector_search import pgvector_search, VectorSearchResult
 from .services.fact_extraction import fact_extraction_service
 from .services.hash_sphere_core import encode_core, gravity as hs_gravity, core_from_stored
+from .services.hash_sphere_model import hash_sphere_model
 from .schemas import (
     MemoryIngestRequest,
     MemoryRecordResponse,
@@ -122,8 +123,13 @@ async def ingest_memory(
         context=payload.metadata.get("context") if payload.metadata else None
     )
 
-    # RFC-0002 Wave 1: compute the 12-D SEMANTIC CORE — this is the memory's real
-    # position in the hash sphere and drives retrieval. hash = quantized position.
+    # RFC-0002 Wave 1/2: compute the 12-D SEMANTIC CORE — the memory's real
+    # position in the hash sphere; drives retrieval. hash = quantized position.
+    # Wave 2: ensure the prototype model is built so α…ζ generalize via embeddings.
+    try:
+        await hash_sphere_model.ensure_built(embeddings_generator)
+    except Exception:
+        pass
     hs_core = encode_core(payload.content, embedding=ingest_embedding)
     core_dict = hs_core.to_dict()
 

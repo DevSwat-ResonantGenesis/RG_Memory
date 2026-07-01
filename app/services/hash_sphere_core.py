@@ -200,13 +200,35 @@ def _resonance(dist: Dict[SemanticCluster, float], temperature: float,
 def encode_core(text: str, embedding: Optional[List[float]] = None) -> HashSphereCore:
     """Compute the 12-D semantic core for a piece of text.
 
-    Wave 1: seed-dictionary based (deterministic, no LLM, works untrained).
-    `embedding` is accepted for forward-compat (Wave 2 model) but not required.
+    Wave 2: if the frozen prototype model is built and an embedding is provided,
+    α…ζ / temperature / polarity come from embedding-space similarity to the seed
+    prototypes (generalizes to the whole vocabulary). Otherwise fall back to the
+    Wave 1 seed-dictionary word counting (deterministic, works untrained).
+    Spin is always text-statistic based (intensity/complexity/abstraction).
     """
     tokens = _tokenize(text)
-    dist = _cluster_distribution(tokens)
-    temperature = _temperature(tokens, text or "")
-    polarity = _polarity(tokens)
+
+    model_axes = None
+    try:
+        from .hash_sphere_model import hash_sphere_model
+        model_axes = hash_sphere_model.predict(embedding)
+    except Exception:
+        model_axes = None
+
+    if model_axes:
+        c = model_axes["clusters"]
+        dist = {
+            SemanticCluster.ALPHA: c["alpha"], SemanticCluster.BETA: c["beta"],
+            SemanticCluster.GAMMA: c["gamma"], SemanticCluster.DELTA: c["delta"],
+            SemanticCluster.EPSILON: c["epsilon"], SemanticCluster.ZETA: c["zeta"],
+        }
+        temperature = model_axes["temperature"]
+        polarity = model_axes["polarity"]
+    else:
+        dist = _cluster_distribution(tokens)
+        temperature = _temperature(tokens, text or "")
+        polarity = _polarity(tokens)
+
     spin = _spin(tokens, text or "", dist)
     resonance = _resonance(dist, temperature, polarity, spin)
     # Energy = ±resonance (signed sentiment strength): polarity centered at 0.5

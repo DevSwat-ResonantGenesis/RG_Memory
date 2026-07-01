@@ -19,6 +19,7 @@ from .services.resonance_hashing import ResonanceHasher
 from .services.memory_encryption import decrypt_memory_content
 from .services.pgvector_search import pgvector_search
 from .services.hash_sphere_core import encode_core, gravity as hs_gravity, core_from_stored
+from .services.hash_sphere_model import hash_sphere_model
 from .schemas import (
     HashSphereExtractRequest,
     HashSphereExtractResponse,
@@ -455,6 +456,10 @@ async def extract_hash_sphere_memories(
     # Candidates were recalled by cosine+BM25 (the floor); the hash sphere now
     # does the real ranking: gravity = exp(-β·||q_core - m_core||²) in 12-D.
     # ============================================
+    try:
+        await hash_sphere_model.ensure_built(embeddings_generator)
+    except Exception:
+        pass
     query_core = encode_core(request.query, embedding=query_embedding)
     query_metric = query_core.metric_vector()
     candidate_ids = []
