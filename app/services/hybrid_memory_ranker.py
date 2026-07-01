@@ -51,22 +51,29 @@ def rank_memories(memories: List[Dict]) -> List[Dict]:
     if not memories:
         return memories
     
+    # Step 0: Rank by HASH SPHERE gravity (12-D) — the PRIMARY signal (RFC-0002).
+    # Weighted highest in the fusion; cosine/BM25 are the recall floor.
+    grav_ranked = sorted(memories, key=lambda m: safe(m.get("gravity_score")), reverse=True)
+    grav_rank = {id(m): rank for rank, m in enumerate(grav_ranked)}
+
     # Step 1: Rank by RAG score (descending)
     rag_ranked = sorted(memories, key=lambda m: safe(m.get("rag_score") or m.get("similarity_score") or m.get("semantic_score")), reverse=True)
     rag_rank = {id(m): rank for rank, m in enumerate(rag_ranked)}
-    
+
     # Step 2: Rank by BM25 score (descending)
     bm25_ranked = sorted(memories, key=lambda m: safe(m.get("bm25_score")), reverse=True)
     bm25_rank = {id(m): rank for rank, m in enumerate(bm25_ranked)}
-    
+
     # Step 3: Rank by resonance/embedding cosine (descending)
     res_ranked = sorted(memories, key=lambda m: safe(m.get("resonance_score")), reverse=True)
     res_rank = {id(m): rank for rank, m in enumerate(res_ranked)}
-    
-    # Step 4: RRF fusion — 3 ranked lists
+
+    # Step 4: RRF fusion — gravity (weight 2.0, primary) + RAG + BM25 + resonance
+    GRAVITY_WEIGHT = 2.0
     for mem in memories:
         mid = id(mem)
         rrf_score = (
+            GRAVITY_WEIGHT * (1.0 / (RRF_K + grav_rank.get(mid, len(memories)))) +
             1.0 / (RRF_K + rag_rank.get(mid, len(memories))) +
             1.0 / (RRF_K + bm25_rank.get(mid, len(memories))) +
             1.0 / (RRF_K + res_rank.get(mid, len(memories)))

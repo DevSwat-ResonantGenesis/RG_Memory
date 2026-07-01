@@ -23,6 +23,7 @@ from .services.performance_logger import perf_tracker, TimingContext
 from .services.semantic_cache import semantic_cache
 from .services.pgvector_search import pgvector_search, VectorSearchResult
 from .services.fact_extraction import fact_extraction_service
+from .services.hash_sphere_core import encode_core, gravity as hs_gravity, core_from_stored
 from .schemas import (
     MemoryIngestRequest,
     MemoryRecordResponse,
@@ -114,14 +115,18 @@ async def ingest_memory(
         if ingest_embeddings:
             ingest_embedding = ingest_embeddings[0]
     
-    # Generate FULL Hash Sphere coordinates using 9-Layer Architecture
-    # Pass embedding so XYZ is derived from semantic space (not hardcoded word lists)
+    # Generate XYZ / sphere coordinates for the VISUALIZER only (not retrieval).
     coords = ResonanceHasher.compute_full_coordinates(
         text=payload.content,
         embedding=ingest_embedding,
         context=payload.metadata.get("context") if payload.metadata else None
     )
-    
+
+    # RFC-0002 Wave 1: compute the 12-D SEMANTIC CORE — this is the memory's real
+    # position in the hash sphere and drives retrieval. hash = quantized position.
+    hs_core = encode_core(payload.content, embedding=ingest_embedding)
+    core_dict = hs_core.to_dict()
+
     # Deduplication: skip exact duplicate content for same user
     from .services.memory_deduplication import memory_deduplication
     content_hash = memory_deduplication.compute_content_hash(payload.content)
@@ -150,38 +155,33 @@ async def ingest_memory(
         content_hash=content_hash,
         extra_metadata=payload.metadata,
         agent_hash=payload.agent_hash,
-        # ========== FULL HASH SPHERE COORDINATE SYSTEM ==========
-        # Layer 2: Hash Generation
-        hash=coords.hash,
+        # ========== HASH SPHERE — 12-D SEMANTIC CORE (retrieval truth) ==========
+        # hash IS the quantized 12-D position (Text ≡ core ≡ hash).
+        hash=hs_core.hash(),
         meaning_hash=coords.meaning_hash,
         energy_hash=coords.energy_hash,
         spin_hash=coords.spin_hash,
-        # Layer 3: Universe ID
         universe_id=coords.universe_id,
-        # Layer 5: Cartesian Coordinates
+        # XYZ / hypersphere — VISUALIZATION ONLY, never used in retrieval.
         xyz_x=coords.x,
         xyz_y=coords.y,
         xyz_z=coords.z,
-        # Hyperspherical Coordinates
         sphere_r=coords.r,
         sphere_phi=coords.phi,
         sphere_theta=coords.theta,
-        # Layer 6: Resonance Scoring
-        resonance_score=coords.resonance_score,
-        normalized_resonance=coords.normalized_resonance,
-        # Anchor Energy
-        anchor_energy=coords.energy,
-        # Spin Vector
-        spin_x=coords.spin_x,
-        spin_y=coords.spin_y,
-        spin_z=coords.spin_z,
-        spin_magnitude=coords.spin_magnitude,
-        # Semantic Components
+        # Retrieval-relevant scalars come from the 12-D CORE:
+        resonance_score=hs_core.resonance,
+        normalized_resonance=(hs_core.resonance + 1.0) / 2.0,
+        anchor_energy=hs_core.energy,                 # Energy = ±resonance (swap)
+        spin_x=hs_core.spin[0],                       # Spin = intensity
+        spin_y=hs_core.spin[1],                       # complexity
+        spin_z=hs_core.spin[2],                       # abstraction
+        spin_magnitude=sum(s * s for s in hs_core.spin) ** 0.5,
         meaning_score=coords.meaning_score,
-        intensity_score=coords.intensity_score,
-        sentiment_score=coords.sentiment_score,
-        # Full coordinates as JSON
-        hash_sphere_coords=coords.to_dict(),
+        intensity_score=hs_core.spin[0],
+        sentiment_score=hs_core.polarity,
+        # Full 12-D core + viz coords as JSON (metric_vector read by retrieval).
+        hash_sphere_coords={**coords.to_dict(), **core_dict},
     )
     session.add(record)
     await session.commit()

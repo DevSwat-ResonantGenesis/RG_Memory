@@ -18,6 +18,7 @@ from .services import resonance_hasher, memory_anchor_service
 from .services.resonance_hashing import ResonanceHasher
 from .services.memory_encryption import decrypt_memory_content
 from .services.pgvector_search import pgvector_search
+from .services.hash_sphere_core import encode_core, gravity as hs_gravity, core_from_stored
 from .schemas import (
     HashSphereExtractRequest,
     HashSphereExtractResponse,
@@ -448,7 +449,45 @@ async def extract_hash_sphere_memories(
             pass
 
     memories_list = list(all_memories.values())
-    
+
+    # ============================================
+    # HASH SPHERE PRIMARY RANKING — 12-D gravity (RFC-0002 Wave 1)
+    # Candidates were recalled by cosine+BM25 (the floor); the hash sphere now
+    # does the real ranking: gravity = exp(-β·||q_core - m_core||²) in 12-D.
+    # ============================================
+    query_core = encode_core(request.query, embedding=query_embedding)
+    query_metric = query_core.metric_vector()
+    candidate_ids = []
+    for m in memories_list:
+        try:
+            candidate_ids.append(uuid.UUID(m["id"]))
+        except (ValueError, TypeError, KeyError):
+            continue
+    core_by_id: Dict[str, list] = {}
+    if candidate_ids:
+        try:
+            core_rows = await session.execute(
+                select(MemoryRecord.id, MemoryRecord.hash_sphere_coords).where(
+                    MemoryRecord.id.in_(candidate_ids)
+                )
+            )
+            for row in core_rows:
+                mv = core_from_stored(row[1])
+                if mv is not None:
+                    core_by_id[str(row[0])] = mv
+        except Exception as e:
+            logger.warning("Hash-sphere core fetch failed: %s", e)
+    gravity_hits = 0
+    for mem in memories_list:
+        mv = core_by_id.get(mem.get("id"))
+        if mv is not None:
+            mem["gravity_score"] = hs_gravity(query_metric, mv)
+            gravity_hits += 1
+        else:
+            mem["gravity_score"] = 0.0
+    if gravity_hits:
+        methods_used.append("hash_sphere_gravity")
+
     # Normalize BM25 scores to 0-1 range
     raw_bm25 = [m.get("bm25_score", 0.0) for m in memories_list]
     max_bm25 = max(raw_bm25) if raw_bm25 else 1.0
@@ -475,20 +514,19 @@ async def extract_hash_sphere_memories(
     
     ranked_memories = rank_memories(memories_list)
 
-    # Drop low-relevance noise: keep a memory only if its RAG semantic similarity
-    # (pgvector cosine, a clean 0-1 signal) clears the floor. This filters out
-    # proximity-only hits (XYZ is hash-derived noise) and keyword-only BM25 hits
-    # with no semantic overlap. RRF above still decides ordering among survivors.
-    # NOTE: resonance_score is intentionally NOT used here — RAG/BM25 paths fill it
-    # from the stored R(h)=sin+cos+tan resonance-function column (unbounded, ~1.7),
-    # a different metric from the embedding cosine, so it can't share this floor.
-    # Only apply the RAG floor when RAG semantic search actually ran; otherwise
-    # (embeddings unavailable / use_rag_fallback disabled) rag_score is 0 for all
-    # and filtering would wipe every result — keep the ranked list as-is instead.
-    if min_score and min_score > 0 and "rag_semantic" in methods_used:
+    # Relevance floor (RFC-0002): hash sphere is PRIMARY, RAG is the fallback floor.
+    # Keep a memory if its 12-D gravity clears the gravity floor OR (fallback) its
+    # RAG cosine clears min_score. This drops true noise while letting either the
+    # brain (gravity) or the floor (cosine) admit a memory. XYZ/proximity and the
+    # unbounded resonance-function column are never used as gates.
+    GRAVITY_FLOOR = float(os.getenv("MIN_GRAVITY_SCORE", "0.12"))
+    have_gravity = "hash_sphere_gravity" in methods_used
+    have_rag = "rag_semantic" in methods_used
+    if have_gravity or (min_score and min_score > 0 and have_rag):
         ranked_memories = [
             m for m in ranked_memories
-            if float(m.get("rag_score", 0.0) or 0.0) >= min_score
+            if (have_gravity and float(m.get("gravity_score", 0.0) or 0.0) >= GRAVITY_FLOOR)
+            or (have_rag and float(m.get("rag_score", 0.0) or 0.0) >= (min_score or 0.0))
         ]
 
     top_memories = ranked_memories[:request.limit]
@@ -510,7 +548,7 @@ async def extract_hash_sphere_memories(
             anchor_energy=mem.get("anchor_energy", 0.0),
             resonance_function_score=mem.get("resonance_function_score", 0.0),
             magnetic_score=mem.get("magnetic_score", 0.0),
-            gravity_force=mem.get("gravity_force", 0.0),
+            gravity_force=mem.get("gravity_score", 0.0),  # 12-D hash-sphere gravity
             timestamp=mem.get("timestamp"),
         ))
     
