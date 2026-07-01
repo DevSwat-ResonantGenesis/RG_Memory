@@ -75,10 +75,15 @@ async def _extract_facts_task(
 @router.post("/ingest", response_model=MemoryRecordResponse)
 async def ingest_memory(
     payload: MemoryIngestRequest,
-    background_tasks: BackgroundTasks,
+    background_tasks: BackgroundTasks = None,
     session: AsyncSession = Depends(get_session),
 ):
-    """Ingest a memory record with FULL Hash Sphere coordinate system."""
+    """Ingest a memory record with FULL Hash Sphere coordinate system.
+
+    background_tasks is optional so internal callers (e.g. the credited
+    /memory/ingest wrapper in main.py) can invoke this directly; when absent,
+    fact extraction is skipped for that call.
+    """
     perf_tracker.increment("total_ingests")
     
     # Invalidate semantic cache for this user (new memory = stale cache)
@@ -266,7 +271,8 @@ async def ingest_memory(
     # Tier 2: extract atomic facts from this memory in the background (best-effort,
     # never blocks or fails the ingest response).
     if (
-        settings.ENABLE_FACT_EXTRACTION
+        background_tasks is not None
+        and settings.ENABLE_FACT_EXTRACTION
         and payload.content
         and len(payload.content) >= settings.FACT_EXTRACTION_MIN_CHARS
     ):

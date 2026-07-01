@@ -10,7 +10,7 @@ SHARED_PATH = Path(__file__).resolve().parents[2] / "shared"
 if str(SHARED_PATH) not in sys.path:
     sys.path.insert(0, str(SHARED_PATH))
 
-from fastapi import FastAPI, Request
+from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -116,7 +116,7 @@ class EmbedRequest(BaseModel):
     task: str = "search_query"
 
 @app.post("/memory/ingest")
-async def ingest_memory(request: MemoryIngestRequest, req: Request):
+async def ingest_memory(request: MemoryIngestRequest, req: Request, background_tasks: BackgroundTasks = None):
     """Ingest a memory into the system with credit deduction."""
     from .db import get_session
     from .routers import ingest_memory as ingest_memory_endpoint
@@ -137,7 +137,7 @@ async def ingest_memory(request: MemoryIngestRequest, req: Request):
     result = None
     async for session in get_session():
         try:
-            result = await ingest_memory_endpoint(payload=payload, session=session)
+            result = await ingest_memory_endpoint(payload=payload, background_tasks=background_tasks, session=session)
             # Only deduct credits if storage succeeded
             user_id = req.headers.get("x-user-id") or request.user_id
             if user_id and result and getattr(result, "id", None):
