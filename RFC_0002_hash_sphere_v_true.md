@@ -36,7 +36,16 @@ confidence gate: top gravity high → answer from memory (no LLM); low → provi
 ## Waves
 - **0 — recall floor**: DONE (vector(384), decrypt, BM25 plaintext, loader key, min_score).
 - **1 — 12-D core (THIS)**: compute+store 12-D core for every new memory; hash = quantized core; retrieval re-ranks candidates by 12-D gravity; XYZ demoted to viz. Seed dictionaries first (works untrained). Clean-slate legacy data.
-- **2 — train the vocab→12-D model**: whole English vocab → 12 axes, contrastive, seeded by CLUSTER_WORDS; replace universe_encoder.pt; must beat seed-dictionary version on test_retrieval_comparison.py + LOCOMO.
+- **2 — vocab→12-axis model: DONE 2026-07-01** (hash_sphere_model.py). Prototype
+  model in frozen MiniLM space: each α…ζ axis = centroid of its CLUSTER_WORDS
+  embeddings; per-word SOFT (standardized-softmax) cluster assignment, cached,
+  aggregated over the sentence; temperature/polarity = warm/cold & pos/neg
+  centroid contrast. Generalizes seeds to the whole vocab (physician≈doctor).
+  Gate (test_hash_sphere_wave2.py): gravity separation 0.278 vs Wave-1 0.125
+  (2.2×), no false-positive blowup; verified live (doctor→physician gravity 0.63).
+  Artifact persisted to data/models/hash_sphere_prototypes.json. A trained
+  projection head could sharpen further later, but the prototype model is the
+  stable, no-training-instability version.
 - **3 — runtime physics + organ**: live gravity/drift in 12-D, self-organizing mesh, reinforcement, crystallization, knowledge graph.
 - **4 — blockchain universe**: immutable per-relationship chains + evidence ledger; wire the memory_anchor tx that currently fires 0×.
 - **5 — cognitive loop** (optional, LLM-gated).
