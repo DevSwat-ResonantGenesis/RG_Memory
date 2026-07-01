@@ -71,17 +71,21 @@
 
 # ── TIER 2 (NEXT SESSION) ─────────────────────────────────────────────────────
 
-# STEP 5: LLM fact extraction at ingest (4 hours)
-#   - GPT-4o-mini extracts atomic facts from chat messages
-#   - Store in memory_facts table (fact, entity, date, confidence)
-#   - Search facts at retrieval time alongside memories
+# STEP 5: LLM fact extraction at ingest ✅ DONE 2026-07-01
+#   - services/fact_extraction.py extracts atomic facts via LLM_Service
+#     POST /llm/chat/completions (OpenAI-format); best-effort background task
+#   - memory_facts table (entity, attribute, value, fact, confidence, status)
+#   - GET /memory/facts endpoint to read active/superseded facts
+#   - Verified live: "I live in Boston, work at Acme" -> 2 facts stored
 
-# STEP 6: Contradiction detection (3 hours)
-#   - At ingest, compare new fact vs existing facts
-#   - Mark old conflicting facts as superseded
+# STEP 6: Contradiction detection ✅ DONE 2026-07-01
+#   - store_facts supersedes older active facts for same (user, entity,
+#     attribute) with a different value; canonical-attribute prompt so
+#     updates collide. Verified: Boston->superseded, Seattle->active.
 
-# STEP 7: Memory compression (3 hours)
-#   - Wire memory_summarization.py as periodic job
+# STEP 7: Memory compression (3 hours) — NOT STARTED
+#   - Wire memory_summarization.py as periodic job (note: it calls a
+#     nonexistent /generate endpoint — must switch to /llm/chat/completions)
 #   - Compress memories >7 days old into summaries
 
 # ── TIER 3 (FUTURE) ───────────────────────────────────────────────────────────
