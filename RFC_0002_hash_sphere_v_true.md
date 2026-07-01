@@ -46,6 +46,17 @@ confidence gate: top gravity high → answer from memory (no LLM); low → provi
   Artifact persisted to data/models/hash_sphere_prototypes.json. A trained
   projection head could sharpen further later, but the prototype model is the
   stable, no-training-instability version.
-- **3 — runtime physics + organ**: live gravity/drift in 12-D, self-organizing mesh, reinforcement, crystallization, knowledge graph.
+- **3 — runtime physics + organ**: PARTIAL 2026-07-01.
+  - 3a DONE — confidence gate: extract returns confidence (0.6·gravity+0.4·rag)
+    + answer_from_memory (>= MEMORY_CONFIDENCE_THRESHOLD, default 0.55) →
+    no-LLM recall signal. Verified: strong match → confidence 0.89, gate open.
+  - 3b DONE — emergent anchor gravity field (hash_sphere_anchors.py): memories
+    JOIN the nearest well (gravity>=0.55 → anchor DRIFTS A+=γ(m-A), member/
+    importance grow) or SPAWN a new well; stored in memory_anchors
+    (type='emergent', archive-not-delete). Retrieval boosts memories in a well
+    the query shares. Verified: related memories formed a 2-member drifting
+    well; anchor_field fires in retrieval.
+  - 3c TODO — self-organizing mesh (edges reinforce/decay/merge), knowledge
+    crystallization (raw→daily→crystal), periodic drift job.
 - **4 — blockchain universe**: immutable per-relationship chains + evidence ledger; wire the memory_anchor tx that currently fires 0×.
 - **5 — cognitive loop** (optional, LLM-gated).
