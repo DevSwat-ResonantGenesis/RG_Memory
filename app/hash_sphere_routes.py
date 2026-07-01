@@ -475,17 +475,20 @@ async def extract_hash_sphere_memories(
     
     ranked_memories = rank_memories(memories_list)
 
-    # Drop low-relevance noise: keep a memory only if its SEMANTIC similarity
-    # (best of RAG cosine or resonance-embedding cosine) clears the floor.
-    # This filters out proximity-only hits (XYZ is hash-derived noise) while
-    # RRF above still decides ordering among the relevant survivors.
-    if min_score and min_score > 0:
+    # Drop low-relevance noise: keep a memory only if its RAG semantic similarity
+    # (pgvector cosine, a clean 0-1 signal) clears the floor. This filters out
+    # proximity-only hits (XYZ is hash-derived noise) and keyword-only BM25 hits
+    # with no semantic overlap. RRF above still decides ordering among survivors.
+    # NOTE: resonance_score is intentionally NOT used here — RAG/BM25 paths fill it
+    # from the stored R(h)=sin+cos+tan resonance-function column (unbounded, ~1.7),
+    # a different metric from the embedding cosine, so it can't share this floor.
+    # Only apply the RAG floor when RAG semantic search actually ran; otherwise
+    # (embeddings unavailable / use_rag_fallback disabled) rag_score is 0 for all
+    # and filtering would wipe every result — keep the ranked list as-is instead.
+    if min_score and min_score > 0 and "rag_semantic" in methods_used:
         ranked_memories = [
             m for m in ranked_memories
-            if max(
-                float(m.get("rag_score", 0.0) or 0.0),
-                float(m.get("resonance_score", 0.0) or 0.0),
-            ) >= min_score
+            if float(m.get("rag_score", 0.0) or 0.0) >= min_score
         ]
 
     top_memories = ranked_memories[:request.limit]
