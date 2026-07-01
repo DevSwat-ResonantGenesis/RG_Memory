@@ -71,17 +71,19 @@ async def _anchor_onchain_task(
             dominant_cluster=dominant_cluster,
         )
         if not tx_hash:
+            logger.warning("On-chain anchor for %s returned no tx_hash", memory_id)
             return
+        # extra_metadata is a JSON (not JSONB) column, so read-modify-write via ORM
+        # rather than the jsonb || operator.
         async with async_session() as s:
-            await s.execute(
-                text(
-                    "UPDATE memory_records SET extra_metadata = "
-                    "COALESCE(extra_metadata, '{}'::jsonb) || jsonb_build_object("
-                    "'blockchain_tx', :tx, 'onchain', true) WHERE id = :rid"
-                ),
-                {"tx": tx_hash, "rid": memory_id},
-            )
-            await s.commit()
+            res = await s.execute(select(MemoryRecord).where(MemoryRecord.id == uuid.UUID(memory_id)))
+            rec = res.scalar_one_or_none()
+            if rec is not None:
+                meta = dict(rec.extra_metadata or {})
+                meta["blockchain_tx"] = tx_hash
+                meta["onchain"] = True
+                rec.extra_metadata = meta
+                await s.commit()
         logger.info("Anchored memory %s on-chain: %s", memory_id, tx_hash[:16])
     except Exception as e:
         logger.debug("On-chain anchor task failed: %s", e)
