@@ -20,7 +20,7 @@ from .services.memory_encryption import decrypt_memory_content
 from .services.pgvector_search import pgvector_search
 from .services.hash_sphere_core import encode_core, gravity as hs_gravity, core_from_stored
 from .services.hash_sphere_model import hash_sphere_model
-from .services import hash_sphere_anchors
+from .services import hash_sphere_anchors, hash_sphere_mesh
 from .schemas import (
     HashSphereExtractRequest,
     HashSphereExtractResponse,
@@ -450,6 +450,50 @@ async def extract_hash_sphere_memories(
         except Exception:
             pass
 
+    # ============================================
+    # ASSOCIATIVE RECALL (RFC-0002 Wave 3c mesh): pull in memories strongly wired
+    # to the current best hits, even if direct cosine/gravity missed them.
+    # ============================================
+    try:
+        if user_uuid and all_memories:
+            seeds = sorted(
+                all_memories.values(),
+                key=lambda m: float(m.get("rag_score", 0.0) or 0.0),
+                reverse=True,
+            )[:3]
+            seed_ids = [s["id"] for s in seeds if s.get("id")]
+            neighbors = await hash_sphere_mesh.associative_neighbors(
+                session, user_uuid=user_uuid, seed_ids=seed_ids,
+                exclude_ids=set(all_memories.keys()), limit=5,
+            )
+            if neighbors:
+                nid_uuids = [uuid.UUID(nid) for nid, _ in neighbors]
+                nrows = await session.execute(
+                    select(MemoryRecord).where(MemoryRecord.id.in_(nid_uuids))
+                )
+                wmap = dict(neighbors)
+                for rec in nrows.scalars().all():
+                    content = decrypt_memory_content(rec.content)
+                    if not content or len(content) < 10:
+                        continue
+                    mid = str(rec.id)
+                    if mid in all_memories:
+                        continue
+                    all_memories[mid] = {
+                        "id": mid,
+                        "content": content,
+                        "type": rec.source or "memory",
+                        "hash": rec.hash,
+                        "xyz": [rec.xyz_x, rec.xyz_y, rec.xyz_z] if rec.xyz_x is not None else None,
+                        "rag_score": 0.0,
+                        "resonance_score": 0.0,
+                        "assoc_weight": wmap.get(mid, 0.0),
+                        "timestamp": rec.created_at.isoformat() if rec.created_at else None,
+                    }
+                methods_used.append("associative_mesh")
+    except Exception as e:
+        logger.debug("Associative recall skipped: %s", e)
+
     memories_list = list(all_memories.values())
 
     # ============================================
@@ -555,10 +599,24 @@ async def extract_hash_sphere_memories(
             m for m in ranked_memories
             if (have_gravity and float(m.get("gravity_score", 0.0) or 0.0) >= GRAVITY_FLOOR)
             or (have_rag and float(m.get("rag_score", 0.0) or 0.0) >= (min_score or 0.0))
+            or float(m.get("assoc_weight", 0.0) or 0.0) >= 0.2  # associative-mesh hit
         ]
 
     top_memories = ranked_memories[:request.limit]
-    
+
+    # Self-organizing mesh (Wave 3c): co-retrieved memories wire together.
+    try:
+        if user_uuid and len(top_memories) >= 2:
+            await hash_sphere_mesh.reinforce_coretrieval(
+                session,
+                user_uuid=user_uuid,
+                org_uuid=(uuid.UUID(request.org_id) if getattr(request, "org_id", None) else None),
+                agent_hash=getattr(request, "agent_hash", None),
+                memory_ids=[m["id"] for m in top_memories if m.get("id")],
+            )
+    except Exception as e:
+        logger.debug("Mesh reinforce skipped: %s", e)
+
     response_memories = []
     for mem in top_memories:
         response_memories.append(HashSphereMemory(

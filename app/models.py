@@ -133,6 +133,32 @@ class MemoryFact(Base):
     )
 
 
+class MemoryEdge(Base):
+    """Self-organizing mesh edge (RFC-0002 Wave 3c) — associative link between two
+    memories. "Fire together, wire together": co-retrieved memories reinforce their
+    edge; edges decay with age; strong edges enable associative recall.
+
+    Undirected — stored with src_id < dst_id (string order) for dedup.
+    """
+    __tablename__ = "memory_edges"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), index=True, nullable=True)
+    org_id = Column(UUID(as_uuid=True), index=True, nullable=True)
+    agent_hash = Column(String(64), index=True, nullable=True)
+
+    src_id = Column(UUID(as_uuid=True), index=True, nullable=False)
+    dst_id = Column(UUID(as_uuid=True), index=True, nullable=False)
+    weight = Column(Float, default=0.1)
+    coretrieval_count = Column(Integer, default=1)
+    last_reinforced = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+    __table_args__ = (
+        Index("ix_memory_edges_pair", "user_id", "src_id", "dst_id", unique=True),
+    )
+
+
 class MemoryEmbedding(Base):
     """Store embeddings for vector similarity search."""
     __tablename__ = "memory_embeddings"
