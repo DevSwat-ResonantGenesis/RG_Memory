@@ -560,7 +560,23 @@ async def extract_hash_sphere_memories(
         ))
     
     extraction_time = (time.perf_counter() - start_time) * 1000
-    
+
+    # ============================================
+    # CONFIDENCE GATE (RFC-0002 Wave 3)
+    # The hash sphere is confident when the top memory sits in a strong gravity
+    # well AND/OR has high semantic (RAG) corroboration. When confident, the
+    # caller can answer directly from memory with NO LLM call ("no-LLM recall").
+    # Blend: gravity is primary, RAG corroborates.
+    # ============================================
+    confidence = 0.0
+    if response_memories:
+        top = response_memories[0]
+        top_gravity = float(top.gravity_force or 0.0)
+        top_rag = float(top.rag_score or 0.0)
+        confidence = round(0.6 * top_gravity + 0.4 * top_rag, 4)
+    conf_threshold = float(os.getenv("MEMORY_CONFIDENCE_THRESHOLD", "0.55"))
+    answer_from_memory = confidence >= conf_threshold
+
     return HashSphereExtractResponse(
         memories=response_memories,
         query=request.query,
@@ -570,6 +586,8 @@ async def extract_hash_sphere_memories(
         total_found=len(response_memories),
         extraction_methods_used=methods_used,
         extraction_time_ms=extraction_time,
+        confidence=confidence,
+        answer_from_memory=answer_from_memory,
     )
 
 

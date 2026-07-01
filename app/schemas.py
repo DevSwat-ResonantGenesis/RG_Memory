@@ -150,6 +150,10 @@ class HashSphereExtractResponse(BaseModel):
     total_found: int
     extraction_methods_used: List[str]
     extraction_time_ms: float
+    # Confidence gate (RFC-0002 Wave 3): when confidence is high the caller can
+    # answer directly from memory WITHOUT invoking an LLM ("no-LLM recall").
+    confidence: float = 0.0
+    answer_from_memory: bool = False
 
 
 class HashRequest(BaseModel):
