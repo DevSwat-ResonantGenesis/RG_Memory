@@ -2,7 +2,22 @@
 # =============================================================================
 # RG_Memory Tier 1 Upgrade Plan
 # Date: 2026-05-02
-# Status: TIER 1 COMPLETE — ready for production deploy + migration
+# Status: TIER 1 COMPLETE — deployed to prod
+#
+# ── 2026-07-01 UPDATE: Wave 0 vector-search fixes DEPLOYED & VERIFIED ──
+# Root cause found in prod: pgvector search silently fell back to linear scan
+# on every query, and the relevance floor rejected 100% of results, so memory
+# recall returned zero memories. Fixed and verified live:
+#   0.2 ✅ embedding column converted double precision[] -> native vector(384)
+#         (dropped 4,235 incompatible old-model embeddings: 512 Nomic + 1536 OpenAI;
+#          kept 2,696 MiniLM 384; added HNSW cosine index; models.py -> Vector(384))
+#   0.3 ✅ decrypt content in pgvector/BM25/multiscope results
+#   0.4 ✅ rebuild BM25 search_tsv from plaintext at ingest
+#   0.5 ✅ encoder loader checkpoint key (encoder_state_dict)
+#   0.6 ✅ recalibrate relevance floor: gate on rag_score (0-1 pgvector cosine)
+#         instead of RRF hybrid_score (maxed ~0.05 vs old 0.35 floor). Default
+#         MIN_SEMANTIC_SCORE=0.25. Also fixed asyncpg ::vector cast + MemoryAnchor import.
+#   Verified: exact-match query returns rag=1.0 ranked #1; unrelated query filters to noise.
 # =============================================================================
 
 # ── COMPLETED ──────────────────────────────────────────────────────────────────
