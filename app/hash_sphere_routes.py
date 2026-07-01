@@ -462,34 +462,40 @@ async def extract_hash_sphere_memories(
                 reverse=True,
             )[:3]
             seed_ids = [s["id"] for s in seeds if s.get("id")]
+            # exclude only the seeds — a neighbor already weakly present must still
+            # get its assoc_weight so the relevance gate keeps it.
             neighbors = await hash_sphere_mesh.associative_neighbors(
-                session, user_uuid=user_uuid, seed_ids=seed_ids,
-                exclude_ids=set(all_memories.keys()), limit=5,
+                session, user_uuid=user_uuid, seed_ids=seed_ids, limit=5,
             )
             if neighbors:
-                nid_uuids = [uuid.UUID(nid) for nid, _ in neighbors]
-                nrows = await session.execute(
-                    select(MemoryRecord).where(MemoryRecord.id.in_(nid_uuids))
-                )
                 wmap = dict(neighbors)
-                for rec in nrows.scalars().all():
-                    content = decrypt_memory_content(rec.content)
-                    if not content or len(content) < 10:
-                        continue
-                    mid = str(rec.id)
+                # tag existing weak candidates that are mesh-neighbors
+                for mid, w in neighbors:
                     if mid in all_memories:
-                        continue
-                    all_memories[mid] = {
-                        "id": mid,
-                        "content": content,
-                        "type": rec.source or "memory",
-                        "hash": rec.hash,
-                        "xyz": [rec.xyz_x, rec.xyz_y, rec.xyz_z] if rec.xyz_x is not None else None,
-                        "rag_score": 0.0,
-                        "resonance_score": 0.0,
-                        "assoc_weight": wmap.get(mid, 0.0),
-                        "timestamp": rec.created_at.isoformat() if rec.created_at else None,
-                    }
+                        all_memories[mid]["assoc_weight"] = max(
+                            float(all_memories[mid].get("assoc_weight", 0.0) or 0.0), w)
+                # fetch + add neighbors not currently in the pool
+                missing = [uuid.UUID(nid) for nid, _ in neighbors if nid not in all_memories]
+                if missing:
+                    nrows = await session.execute(
+                        select(MemoryRecord).where(MemoryRecord.id.in_(missing))
+                    )
+                    for rec in nrows.scalars().all():
+                        content = decrypt_memory_content(rec.content)
+                        if not content or len(content) < 10:
+                            continue
+                        mid = str(rec.id)
+                        all_memories[mid] = {
+                            "id": mid,
+                            "content": content,
+                            "type": rec.source or "memory",
+                            "hash": rec.hash,
+                            "xyz": [rec.xyz_x, rec.xyz_y, rec.xyz_z] if rec.xyz_x is not None else None,
+                            "rag_score": 0.0,
+                            "resonance_score": 0.0,
+                            "assoc_weight": wmap.get(mid, 0.0),
+                            "timestamp": rec.created_at.isoformat() if rec.created_at else None,
+                        }
                 methods_used.append("associative_mesh")
     except Exception as e:
         logger.debug("Associative recall skipped: %s", e)
