@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import get_session
 from .embeddings import embeddings_generator
-from .models import MemoryRecord, MemoryEmbedding, MemoryAnchor
+from .models import MemoryRecord, MemoryEmbedding, MemoryAnchor, EMBEDDING_DIM
 from .services import resonance_hasher
 from .services.resonance_hashing import ResonanceHasher
 from .services.memory_encryption import memory_encryption, encrypt_memory_content, decrypt_memory_content
@@ -158,8 +158,10 @@ async def ingest_memory(
     )
     await session.commit()
 
-    # Store the embedding in MemoryEmbedding table for vector search
-    if ingest_embedding:
+    # Store the embedding in MemoryEmbedding table for vector search.
+    # The column is a fixed-width pgvector(EMBEDDING_DIM); skip any embedding whose
+    # dimension doesn't match (e.g. a fallback provider kicked in) rather than crash.
+    if ingest_embedding and len(ingest_embedding) == EMBEDDING_DIM:
         embedding_record = MemoryEmbedding(
             memory_id=record.id,
             user_id=user_uuid,
@@ -168,6 +170,11 @@ async def ingest_memory(
         )
         session.add(embedding_record)
         await session.commit()
+    elif ingest_embedding:
+        logger.warning(
+            "Skipping embedding store: dimension %d != %d (fallback provider?)",
+            len(ingest_embedding), EMBEDDING_DIM,
+        )
     
     # Auto-create memory anchors from meaningful content
     # Anchors enable fast keyword-based memory lookup (PRIORITY 1 in extraction)

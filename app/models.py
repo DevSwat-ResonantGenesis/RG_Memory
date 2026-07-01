@@ -13,8 +13,13 @@ import uuid
 from sqlalchemy import Boolean, Column, DateTime, Float, Index, Integer, String, Text, JSON
 from sqlalchemy.dialects.postgresql import UUID, ARRAY, TSVECTOR
 from sqlalchemy.sql import func
+from pgvector.sqlalchemy import Vector
 
 from .db import Base
+
+# Native embedding dimension (MiniLM-L6-v2). All embeddings are normalized to
+# this dimension so pgvector's <=> cosine operator works on a fixed-width column.
+EMBEDDING_DIM = 384
 
 
 class MemoryRecord(Base):
@@ -101,9 +106,9 @@ class MemoryEmbedding(Base):
     memory_id = Column(UUID(as_uuid=True), index=True, nullable=False)
     user_id = Column(UUID(as_uuid=True), index=True, nullable=True)
     org_id = Column(UUID(as_uuid=True), index=True, nullable=True)
-    embedding = Column(ARRAY(Float), nullable=False)  # Vector embedding
-    model = Column(String(64), default="text-embedding-3-small")
-    dimensions = Column(Integer, default=1536)
+    embedding = Column(Vector(EMBEDDING_DIM), nullable=False)  # native pgvector column
+    model = Column(String(64), default="all-MiniLM-L6-v2")
+    dimensions = Column(Integer, default=EMBEDDING_DIM)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
