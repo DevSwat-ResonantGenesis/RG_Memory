@@ -20,6 +20,7 @@ from .services.memory_encryption import decrypt_memory_content
 from .services.pgvector_search import pgvector_search
 from .services.hash_sphere_core import encode_core, gravity as hs_gravity, core_from_stored
 from .services.hash_sphere_model import hash_sphere_model
+from .services import hash_sphere_anchors
 from .schemas import (
     HashSphereExtractRequest,
     HashSphereExtractResponse,
@@ -484,16 +485,36 @@ async def extract_hash_sphere_memories(
                     core_by_id[str(row[0])] = mv
         except Exception as e:
             logger.warning("Hash-sphere core fetch failed: %s", e)
+    # Live gravity field (Wave 3b): wells the query falls into pull nearby memories up.
+    wells = []
+    try:
+        wells = await hash_sphere_anchors.gravity_boosts(
+            session,
+            user_uuid=user_uuid,
+            agent_hash=getattr(request, "agent_hash", None),
+            query_core_metric=query_metric,
+        )
+    except Exception as e:
+        logger.debug("Anchor gravity_boosts skipped: %s", e)
+
     gravity_hits = 0
     for mem in memories_list:
         mv = core_by_id.get(mem.get("id"))
         if mv is not None:
-            mem["gravity_score"] = hs_gravity(query_metric, mv)
+            g = hs_gravity(query_metric, mv)
+            # Anchor pull: if the memory sits in a well the query also falls into,
+            # add a fraction of that well's weight (dense/important regions surface).
+            if wells:
+                pull = max((w["weight"] * hs_gravity(mv, w["core"])) for w in wells)
+                g = min(1.0, g + 0.3 * pull)
+            mem["gravity_score"] = g
             gravity_hits += 1
         else:
             mem["gravity_score"] = 0.0
     if gravity_hits:
         methods_used.append("hash_sphere_gravity")
+    if wells:
+        methods_used.append("anchor_field")
 
     # Normalize BM25 scores to 0-1 range
     raw_bm25 = [m.get("bm25_score", 0.0) for m in memories_list]

@@ -25,6 +25,7 @@ from .services.pgvector_search import pgvector_search, VectorSearchResult
 from .services.fact_extraction import fact_extraction_service
 from .services.hash_sphere_core import encode_core, gravity as hs_gravity, core_from_stored
 from .services.hash_sphere_model import hash_sphere_model
+from .services import hash_sphere_anchors
 from .schemas import (
     MemoryIngestRequest,
     MemoryRecordResponse,
@@ -201,6 +202,20 @@ async def ingest_memory(
         {"txt": payload.content, "rid": record.id},
     )
     await session.commit()
+
+    # RFC-0002 Wave 3b: reinforce the live gravity field — join the nearest well
+    # (drift it toward this memory) or spawn a new one. Best-effort.
+    try:
+        await hash_sphere_anchors.reinforce(
+            session,
+            user_uuid=user_uuid,
+            org_uuid=org_uuid,
+            agent_hash=payload.agent_hash,
+            memory_id=record.id,
+            core=hs_core,
+        )
+    except Exception as e:
+        logger.debug("Anchor reinforce skipped: %s", e)
 
     # Store the embedding in MemoryEmbedding table for vector search.
     # The column is a fixed-width pgvector(EMBEDDING_DIM); skip any embedding whose
