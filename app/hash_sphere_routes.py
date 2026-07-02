@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from .db import get_session
 from .embeddings import embeddings_generator
-from .models import MemoryRecord, MemoryEmbedding
+from .models import MemoryRecord, MemoryEmbedding, MemoryFact
 from .services import resonance_hasher, memory_anchor_service
 from .services.resonance_hashing import ResonanceHasher
 from .services.memory_encryption import decrypt_memory_content
@@ -505,6 +505,43 @@ async def extract_hash_sphere_memories(
     except Exception as e:
         logger.debug("Associative recall skipped: %s", e)
 
+    # ============================================
+    # FACTS (Mem0-level precision, #3): inject the user's distilled atomic facts
+    # as candidates. They answer identity/attribute questions precisely and cover
+    # concept gaps cosine misses (e.g. "family" → "the user's child is Lily").
+    # Facts have no embedding/12-D core — they rely on the cross-encoder rerank.
+    # ============================================
+    try:
+        if user_uuid:
+            frows = await session.execute(
+                select(MemoryFact).where(
+                    MemoryFact.user_id == user_uuid,
+                    MemoryFact.status == "active",
+                ).order_by(MemoryFact.confidence.desc()).limit(20)
+            )
+            injected = 0
+            for f in frows.scalars().all():
+                if not f.fact or len(f.fact) < 4:
+                    continue
+                fid = f"fact_{f.id}"
+                if fid in all_memories:
+                    continue
+                all_memories[fid] = {
+                    "id": fid,
+                    "content": f.fact,
+                    "type": "fact",
+                    "hash": f.fact_hash,
+                    "rag_score": 0.0,
+                    "resonance_score": 0.0,
+                    "is_fact": True,
+                    "timestamp": f.created_at.isoformat() if f.created_at else None,
+                }
+                injected += 1
+            if injected:
+                methods_used.append("facts")
+    except Exception as e:
+        logger.debug("Fact injection skipped: %s", e)
+
     memories_list = list(all_memories.values())
 
     # ============================================
@@ -574,7 +611,7 @@ async def extract_hash_sphere_memories(
     # CROSS-ENCODER precision rerank over the candidate pool — the sharpest
     # relevance signal (joint query-memory encoding). Bounded to cap latency.
     try:
-        pool = memories_list[:30]
+        pool = memories_list[:45]
         docs = [m.get("content", "") or "" for m in pool]
         rr = await reranker.rerank_scores(request.query, docs)
         if rr:
