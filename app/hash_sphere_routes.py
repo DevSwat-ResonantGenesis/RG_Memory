@@ -578,9 +578,16 @@ async def extract_hash_sphere_memories(
         docs = [m.get("content", "") or "" for m in pool]
         rr = await reranker.rerank_scores(request.query, docs)
         if rr:
-            for m, s in zip(pool, rr):
-                m["rerank_score"] = s
-            methods_used.append("cross_encoder")
+            # ms-marco scores are correctly ORDERED but tiny in absolute terms for
+            # short first-person text. Normalize within the pool (best → 1.0) for
+            # relative ranking/gating; only trust it if the raw max clears a small
+            # epsilon (else the whole pool is irrelevant → fall back to cosine).
+            raw_max = max(rr)
+            if raw_max >= 0.015:
+                for m, s in zip(pool, rr):
+                    m["rerank_raw"] = s
+                    m["rerank_score"] = s / raw_max
+                methods_used.append("cross_encoder")
     except Exception as e:
         logger.debug("Rerank skipped: %s", e)
 
@@ -685,16 +692,11 @@ async def extract_hash_sphere_memories(
     confidence = 0.0
     if response_memories:
         top = response_memories[0]
-        top_dict = top_memories[0] if top_memories else {}
-        top_rerank = float(top_dict.get("rerank_score", 0.0) or 0.0)
         top_gravity = float(top.gravity_force or 0.0)
         top_rag = float(top.rag_score or 0.0)
-        # The cross-encoder is the sharpest relevance signal — when it ran it drives
-        # confidence; else fall back to the cosine-led blend.
-        if "cross_encoder" in methods_used:
-            confidence = round(0.7 * top_rerank + 0.2 * top_rag + 0.1 * top_gravity, 4)
-        else:
-            confidence = round(0.6 * top_rag + 0.4 * top_gravity, 4)
+        # The cross-encoder fixes WHICH memory is #1 (ordering); cosine gives the
+        # absolute grounding for HOW confident we are. rag leads, gravity corroborates.
+        confidence = round(0.6 * top_rag + 0.4 * top_gravity, 4)
     conf_threshold = float(os.getenv("MEMORY_CONFIDENCE_THRESHOLD", "0.55"))
     answer_from_memory = confidence >= conf_threshold
 
