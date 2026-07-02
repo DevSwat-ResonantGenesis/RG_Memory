@@ -25,6 +25,7 @@ MEM = "http://localhost:8000"
 LLM = "http://llm_service:8000/llm/chat/completions"
 DATASET = os.getenv("DATASET", "/tmp/locomo10.json")
 N_SAMPLES = int(os.getenv("N_SAMPLES", "2"))
+QA_LIMIT = int(os.getenv("QA_LIMIT", "0"))  # 0 = all questions per sample
 LIMIT = int(os.getenv("LIMIT", "20"))
 SKIP_ENRICH = os.getenv("SKIP_ENRICH", "1") == "1"
 CAT = {1: "multi-hop", 2: "temporal", 3: "open-domain", 4: "single-hop", 5: "adversarial"}
@@ -91,7 +92,10 @@ async def run():
             await asyncio.sleep(1)
             print(f"[sample {si+1}/{len(samples)}] {sid}: ingested {sum(len(conv[k]) for k in sess_keys)} turns, {len(sample.get('qa',[]))} questions", flush=True)
 
-            for qa in sample.get("qa", []):
+            qa_list = sample.get("qa", [])
+            if QA_LIMIT:
+                qa_list = qa_list[:QA_LIMIT]
+            for qa in qa_list:
                 q, gold = qa.get("question", ""), str(qa.get("answer", qa.get("adversarial_answer", "")))
                 cat = qa.get("category", 0)
                 mems = await retrieve(client, user_id, q)
