@@ -1,0 +1,21 @@
+[project]
+name = "resonant-memory"
+version = "1.0.0"
+description = "Resonant Memory — physics-informed, immutable, sovereign AI memory as an API"
+readme = "README.md"
+requires-python = ">=3.8"
+dependencies = ["httpx>=0.24"]
+authors = [{ name = "Resonant Genesis" }]
+license = { text = "Proprietary" }
+
+[project.urls]
+Homepage = "https://dev-swat.com/memory"
+Documentation = "https://dev-swat.com/docs/memory-api"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["resonant_memory*"]
