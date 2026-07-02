@@ -246,11 +246,19 @@ async def ingest_memory(
         # Full 12-D core + viz coords as JSON (metric_vector read by retrieval).
         hash_sphere_coords={**coords.to_dict(), **core_dict},
     )
-    if event_dt is not None:
-        record.created_at = event_dt  # temporal: event time, not import time
     session.add(record)
     await session.commit()
     await session.refresh(record)
+
+    # Temporal: force created_at to the event time. Explicit ORM assignment is
+    # ignored because the column has server_default=now(), so UPDATE directly.
+    if event_dt is not None:
+        await session.execute(
+            text("UPDATE memory_records SET created_at = :dt WHERE id = :rid"),
+            {"dt": event_dt, "rid": record.id},
+        )
+        await session.commit()
+        record.created_at = event_dt
 
     # Overwrite search_tsv with plaintext — the INSERT trigger used the encrypted content
     await session.execute(
