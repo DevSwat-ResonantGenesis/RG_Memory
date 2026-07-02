@@ -20,7 +20,7 @@ from .services.memory_encryption import decrypt_memory_content
 from .services.pgvector_search import pgvector_search
 from .services.hash_sphere_core import encode_core, gravity as hs_gravity, core_from_stored
 from .services.hash_sphere_model import hash_sphere_model
-from .services import hash_sphere_anchors, hash_sphere_mesh, hash_sphere_chain, reranker
+from .services import hash_sphere_anchors, hash_sphere_mesh, hash_sphere_chain, reranker, hash_sphere_graph
 from .schemas import (
     HashSphereExtractRequest,
     HashSphereExtractResponse,
@@ -654,6 +654,48 @@ async def extract_hash_sphere_memories(
     
     ranked_memories = rank_memories(memories_list)
 
+    # ============================================
+    # MULTI-HOP KNOWLEDGE GRAPH (GAP 3): from the top query-relevant facts, traverse
+    # the fact graph to pull in CONNECTED facts single-shot retrieval can't reach
+    # (e.g. daughter→Lily→grade→kindergarten). This is the OMEGA/Hindsight capability.
+    # ============================================
+    try:
+        if user_uuid and "facts" in methods_used:
+            seed_dicts = [m for m in ranked_memories[:8] if m.get("is_fact") and not m.get("is_graph")]
+            seed_ids = []
+            for m in seed_dicts:
+                try:
+                    seed_ids.append(uuid.UUID(str(m["id"]).replace("fact_", "")))
+                except (ValueError, TypeError, KeyError):
+                    continue
+            if seed_ids:
+                srows = await session.execute(select(MemoryFact).where(MemoryFact.id.in_(seed_ids)))
+                seeds = list(srows.scalars().all())
+                connected = await hash_sphere_graph.traverse(
+                    session, user_uuid=user_uuid, seed_facts=seeds,
+                )
+                base = max((float(m.get("hybrid_score", 0.0) or 0.0) for m in seed_dicts), default=0.6)
+                added = 0
+                for f, hop in connected:
+                    fid = f"fact_{f.id}"
+                    if fid in all_memories:
+                        continue
+                    entry = {
+                        "id": fid, "content": f.fact, "type": "fact",
+                        "is_fact": True, "is_graph": True, "hop": hop,
+                        "rag_score": 0.0, "gravity_score": 0.0,
+                        "hybrid_score": base * (0.7 ** hop),
+                        "timestamp": f.created_at.isoformat() if f.created_at else None,
+                    }
+                    all_memories[fid] = entry
+                    ranked_memories.append(entry)
+                    added += 1
+                if added:
+                    methods_used.append("knowledge_graph")
+                    ranked_memories.sort(key=lambda m: float(m.get("hybrid_score", 0.0) or 0.0), reverse=True)
+    except Exception as e:
+        logger.debug("Knowledge-graph expansion skipped: %s", e)
+
     # Relevance floor (RFC-0002): hash sphere is PRIMARY, RAG is the fallback floor.
     # Keep a memory if its 12-D gravity clears the gravity floor OR (fallback) its
     # RAG cosine clears min_score. This drops true noise while letting either the
@@ -671,6 +713,7 @@ async def extract_hash_sphere_memories(
             or (have_gravity and float(m.get("gravity_score", 0.0) or 0.0) >= GRAVITY_FLOOR)
             or (have_rag and float(m.get("rag_score", 0.0) or 0.0) >= (min_score or 0.0))
             or float(m.get("assoc_weight", 0.0) or 0.0) >= 0.2  # associative-mesh hit
+            or bool(m.get("is_graph"))  # multi-hop knowledge-graph fact
         ]
 
     top_memories = ranked_memories[:request.limit]
