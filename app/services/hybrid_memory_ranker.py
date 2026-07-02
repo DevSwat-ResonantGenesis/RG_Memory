@@ -50,48 +50,32 @@ def rank_memories(memories: List[Dict]) -> List[Dict]:
     """
     if not memories:
         return memories
-    
-    # Step 0: Rank by HASH SPHERE gravity (12-D) — the PRIMARY signal (RFC-0002).
-    # Weighted highest in the fusion; cosine/BM25 are the recall floor.
-    grav_ranked = sorted(memories, key=lambda m: safe(m.get("gravity_score")), reverse=True)
-    grav_rank = {id(m): rank for rank, m in enumerate(grav_ranked)}
 
-    # Step 1: Rank by RAG score (descending)
-    rag_ranked = sorted(memories, key=lambda m: safe(m.get("rag_score") or m.get("similarity_score") or m.get("semantic_score")), reverse=True)
-    rag_rank = {id(m): rank for rank, m in enumerate(rag_ranked)}
-
-    # Step 2: Rank by BM25 score (descending)
-    bm25_ranked = sorted(memories, key=lambda m: safe(m.get("bm25_score")), reverse=True)
-    bm25_rank = {id(m): rank for rank, m in enumerate(bm25_ranked)}
-
-    # Step 3: Rank by resonance/embedding cosine (descending)
-    res_ranked = sorted(memories, key=lambda m: safe(m.get("resonance_score")), reverse=True)
-    res_rank = {id(m): rank for rank, m in enumerate(res_ranked)}
-
-    # Step 4: RRF fusion. EMPIRICAL CALIBRATION: the untrained 12-D core captures
-    # semantic DOMAIN/STRUCTURE but not fine TOPIC (structurally-similar sentences
-    # score high gravity regardless of topic), so cosine (RAG) is currently the
-    # sharper discriminator and LEADS the fusion. Gravity/resonance corroborate
-    # (structure + physics) and will be re-weighted up once the trained projection
-    # head (Wave 2.5) makes the 12-D space topic-sharp. BM25 catches keywords.
-    RAG_WEIGHT = 1.6
-    GRAVITY_WEIGHT = 0.8
-    BM25_WEIGHT = 1.0
-    RES_WEIGHT = 0.5
+    # SCORE-BASED blend (not RRF). RRF fuses by rank POSITION and discards cosine
+    # MAGNITUDE — for focused recall over a small pool that ties the right answer
+    # (cosine 0.6) with near-noise (cosine 0.05). Here semantic cosine magnitude
+    # (rag_score, 0-1) LEADS, and the hash-sphere physics adds calibrated boosts:
+    #   gravity  — 12-D structural proximity (untrained → domain-coarse, so modest)
+    #   bm25     — keyword overlap (normalized 0-1 upstream)
+    #   assoc    — self-organizing mesh: associative recall of wired memories
+    #   resonance— embedding-cosine variant
+    # Gravity's weight rises once the trained projection head sharpens topic.
+    W_RAG, W_GRAV, W_BM25, W_ASSOC, W_RES = 1.0, 0.30, 0.25, 0.30, 0.10
     for mem in memories:
-        mid = id(mem)
-        rrf_score = (
-            RAG_WEIGHT * (1.0 / (RRF_K + rag_rank.get(mid, len(memories)))) +
-            GRAVITY_WEIGHT * (1.0 / (RRF_K + grav_rank.get(mid, len(memories)))) +
-            BM25_WEIGHT * (1.0 / (RRF_K + bm25_rank.get(mid, len(memories)))) +
-            RES_WEIGHT * (1.0 / (RRF_K + res_rank.get(mid, len(memories))))
-        )
-        
-        # Step 5: Recency boost (multiplicative, not additive)
+        rag = safe(mem.get("rag_score") or mem.get("similarity_score") or mem.get("semantic_score"))
+        grav = safe(mem.get("gravity_score"))
+        bm25 = safe(mem.get("bm25_score"))
+        assoc = safe(mem.get("assoc_weight"))
+        res = safe(mem.get("resonance_score"))
+        # resonance_score can be an unbounded R(h) function value on some paths;
+        # only credit it when it's a proper 0-1 cosine.
+        res = res if 0.0 <= res <= 1.0 else 0.0
+
+        score = (W_RAG * rag) + (W_GRAV * grav) + (W_BM25 * bm25) + (W_ASSOC * assoc) + (W_RES * res)
+
         recency = safe(mem.get("recency_score"), 0.5)
-        boost = 1.0 + (RECENCY_BOOST_MAX * recency)
-        
-        mem["hybrid_score"] = rrf_score * boost
-    
+        score *= (1.0 + RECENCY_BOOST_MAX * recency)
+        mem["hybrid_score"] = score
+
     return sorted(memories, key=lambda m: m.get("hybrid_score", 0), reverse=True)
 
