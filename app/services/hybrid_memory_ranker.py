@@ -68,15 +68,23 @@ def rank_memories(memories: List[Dict]) -> List[Dict]:
     res_ranked = sorted(memories, key=lambda m: safe(m.get("resonance_score")), reverse=True)
     res_rank = {id(m): rank for rank, m in enumerate(res_ranked)}
 
-    # Step 4: RRF fusion — gravity (weight 2.0, primary) + RAG + BM25 + resonance
-    GRAVITY_WEIGHT = 2.0
+    # Step 4: RRF fusion. EMPIRICAL CALIBRATION: the untrained 12-D core captures
+    # semantic DOMAIN/STRUCTURE but not fine TOPIC (structurally-similar sentences
+    # score high gravity regardless of topic), so cosine (RAG) is currently the
+    # sharper discriminator and LEADS the fusion. Gravity/resonance corroborate
+    # (structure + physics) and will be re-weighted up once the trained projection
+    # head (Wave 2.5) makes the 12-D space topic-sharp. BM25 catches keywords.
+    RAG_WEIGHT = 1.6
+    GRAVITY_WEIGHT = 0.8
+    BM25_WEIGHT = 1.0
+    RES_WEIGHT = 0.5
     for mem in memories:
         mid = id(mem)
         rrf_score = (
+            RAG_WEIGHT * (1.0 / (RRF_K + rag_rank.get(mid, len(memories)))) +
             GRAVITY_WEIGHT * (1.0 / (RRF_K + grav_rank.get(mid, len(memories)))) +
-            1.0 / (RRF_K + rag_rank.get(mid, len(memories))) +
-            1.0 / (RRF_K + bm25_rank.get(mid, len(memories))) +
-            1.0 / (RRF_K + res_rank.get(mid, len(memories)))
+            BM25_WEIGHT * (1.0 / (RRF_K + bm25_rank.get(mid, len(memories)))) +
+            RES_WEIGHT * (1.0 / (RRF_K + res_rank.get(mid, len(memories))))
         )
         
         # Step 5: Recency boost (multiplicative, not additive)

@@ -663,7 +663,9 @@ async def extract_hash_sphere_memories(
         top = response_memories[0]
         top_gravity = float(top.gravity_force or 0.0)
         top_rag = float(top.rag_score or 0.0)
-        confidence = round(0.6 * top_gravity + 0.4 * top_rag, 4)
+        # RAG (cosine) is the sharper discriminator on the untrained 12-D space,
+        # so it leads the confidence blend; gravity corroborates.
+        confidence = round(0.4 * top_gravity + 0.6 * top_rag, 4)
     conf_threshold = float(os.getenv("MEMORY_CONFIDENCE_THRESHOLD", "0.55"))
     answer_from_memory = confidence >= conf_threshold
 
