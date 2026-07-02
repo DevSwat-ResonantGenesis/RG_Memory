@@ -17,8 +17,9 @@ Fixes the long-standing bug where memory anchoring posted to
 
 from __future__ import annotations
 
+import hashlib
 import logging
-from typing import Optional
+from typing import List, Optional, Tuple
 
 import httpx
 
@@ -76,3 +77,48 @@ async def anchor_memory(
     except Exception as e:
         logger.debug("On-chain anchor skipped: %s", e)
         return None
+
+
+def evidence_hash(query_hash: str, weighted: List[Tuple[str, float]]) -> str:
+    """Deterministic evidence-ledger hash over the query + (memory_id, weight) set
+    that produced a confident recall. Verifiable: same evidence → same hash."""
+    parts = [query_hash or ""]
+    for mid, w in sorted(weighted, key=lambda x: x[0]):
+        parts.append(f"{mid}:{round(float(w), 4)}")
+    return "ev_" + hashlib.sha256("|".join(parts).encode("utf-8")).hexdigest()
+
+
+async def anchor_evidence(
+    *,
+    query_hash: str,
+    weighted: List[Tuple[str, float]],
+    user_id: Optional[str],
+    agent_hash: Optional[str],
+    confidence: float,
+) -> Optional[str]:
+    """Anchor an evidence record on-chain: which memories (and weights) justified
+    a confident answer. Returns tx_hash. Provides 'here is why I recalled this'."""
+    ev = evidence_hash(query_hash, weighted)
+    payload = {
+        "evidence_hash": ev,
+        "query_hash": query_hash,
+        "memory_ids": [m for m, _ in weighted],
+        "weights": {m: round(float(w), 4) for m, w in weighted},
+        "confidence": round(float(confidence), 4),
+        "user_id": user_id,
+        "agent_hash": agent_hash,
+        "relationship": relationship_of(user_id, agent_hash),
+    }
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.post(
+                f"{_BLOCKCHAIN_URL}/distributed/transactions",
+                json={"tx_type": "evidence", "payload": payload},
+            )
+        if resp.status_code != 200:
+            logger.warning("Evidence anchor returned %s", resp.status_code)
+            return ev  # hash is still valid provenance even if chain post failed
+        return ev
+    except Exception as e:
+        logger.debug("Evidence anchor skipped: %s", e)
+        return ev

@@ -154,6 +154,10 @@ class HashSphereExtractResponse(BaseModel):
     # answer directly from memory WITHOUT invoking an LLM ("no-LLM recall").
     confidence: float = 0.0
     answer_from_memory: bool = False
+    # Evidence ledger (RFC-0002 Wave 4b): cryptographic provenance hash for a
+    # confident recall — which memories+weights justified the answer, anchored
+    # on-chain. "Here is why I recalled this."
+    evidence_hash: Optional[str] = None
 
 
 class HashRequest(BaseModel):

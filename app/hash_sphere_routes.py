@@ -20,7 +20,7 @@ from .services.memory_encryption import decrypt_memory_content
 from .services.pgvector_search import pgvector_search
 from .services.hash_sphere_core import encode_core, gravity as hs_gravity, core_from_stored
 from .services.hash_sphere_model import hash_sphere_model
-from .services import hash_sphere_anchors, hash_sphere_mesh
+from .services import hash_sphere_anchors, hash_sphere_mesh, hash_sphere_chain
 from .schemas import (
     HashSphereExtractRequest,
     HashSphereExtractResponse,
@@ -667,6 +667,22 @@ async def extract_hash_sphere_memories(
     conf_threshold = float(os.getenv("MEMORY_CONFIDENCE_THRESHOLD", "0.55"))
     answer_from_memory = confidence >= conf_threshold
 
+    # Evidence ledger (Wave 4b): on a confident recall, hash the (query, memories,
+    # weights) that justified it and anchor on-chain as verifiable provenance.
+    evidence_hash_val = None
+    if answer_from_memory and response_memories:
+        weighted = [(m.id, float(m.hybrid_score or 0.0)) for m in response_memories]
+        evidence_hash_val = hash_sphere_chain.evidence_hash(query_hash, weighted)
+        try:
+            import asyncio as _asyncio
+            _asyncio.create_task(hash_sphere_chain.anchor_evidence(
+                query_hash=query_hash, weighted=weighted,
+                user_id=request.user_id, agent_hash=getattr(request, "agent_hash", None),
+                confidence=confidence,
+            ))
+        except Exception as e:
+            logger.debug("Evidence anchor scheduling skipped: %s", e)
+
     return HashSphereExtractResponse(
         memories=response_memories,
         query=request.query,
@@ -678,6 +694,7 @@ async def extract_hash_sphere_memories(
         extraction_time_ms=extraction_time,
         confidence=confidence,
         answer_from_memory=answer_from_memory,
+        evidence_hash=evidence_hash_val,
     )
 
 
