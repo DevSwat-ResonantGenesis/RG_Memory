@@ -578,12 +578,12 @@ async def extract_hash_sphere_memories(
         docs = [m.get("content", "") or "" for m in pool]
         rr = await reranker.rerank_scores(request.query, docs)
         if rr:
-            # ms-marco scores are correctly ORDERED but tiny in absolute terms for
-            # short first-person text. Normalize within the pool (best → 1.0) for
-            # relative ranking/gating; only trust it if the raw max clears a small
-            # epsilon (else the whole pool is irrelevant → fall back to cosine).
+            # ms-marco scores order correctly but are tiny in absolute terms for
+            # short first-person text. Normalize within the pool (best → 1.0) so it
+            # CO-LEADS ranking with cosine (it helps when confident, doesn't hurt
+            # when flat). Not solely authoritative — the model is imperfect here.
             raw_max = max(rr)
-            if raw_max >= 0.015:
+            if raw_max > 0:
                 for m, s in zip(pool, rr):
                     m["rerank_raw"] = s
                     m["rerank_score"] = s / raw_max
@@ -626,20 +626,12 @@ async def extract_hash_sphere_memories(
     have_gravity = "hash_sphere_gravity" in methods_used
     have_rag = "rag_semantic" in methods_used
     have_rerank = "cross_encoder" in methods_used
-    RERANK_FLOOR = float(os.getenv("MIN_RERANK_SCORE", "0.35"))
-    if have_rerank:
-        # Cross-encoder is authoritative when present: keep confident rerank hits
-        # (+ associative-mesh hits). Do NOT OR in the permissive gravity floor —
-        # that would re-admit structurally-similar topic noise.
+    RERANK_FLOOR = float(os.getenv("MIN_RERANK_SCORE", "0.5"))
+    if have_gravity or have_rerank or (min_score and min_score > 0 and have_rag):
         ranked_memories = [
             m for m in ranked_memories
-            if float(m.get("rerank_score", 0.0) or 0.0) >= RERANK_FLOOR
-            or float(m.get("assoc_weight", 0.0) or 0.0) >= 0.2
-        ]
-    elif have_gravity or (min_score and min_score > 0 and have_rag):
-        ranked_memories = [
-            m for m in ranked_memories
-            if (have_gravity and float(m.get("gravity_score", 0.0) or 0.0) >= GRAVITY_FLOOR)
+            if (have_rerank and float(m.get("rerank_score", 0.0) or 0.0) >= RERANK_FLOOR)
+            or (have_gravity and float(m.get("gravity_score", 0.0) or 0.0) >= GRAVITY_FLOOR)
             or (have_rag and float(m.get("rag_score", 0.0) or 0.0) >= (min_score or 0.0))
             or float(m.get("assoc_weight", 0.0) or 0.0) >= 0.2  # associative-mesh hit
         ]

@@ -62,7 +62,7 @@ def rank_memories(memories: List[Dict]) -> List[Dict]:
     # Gravity's weight rises once the trained projection head sharpens topic.
     # When the cross-encoder ran, IT is the primary discriminator (sharpest
     # relevance); cosine + physics corroborate. Otherwise cosine leads.
-    W_RERANK, W_RAG, W_GRAV, W_BM25, W_ASSOC, W_RES = 1.8, 1.0, 0.30, 0.25, 0.30, 0.10
+    W_RERANK, W_RAG, W_GRAV, W_BM25, W_ASSOC, W_RES = 1.2, 1.0, 0.30, 0.25, 0.30, 0.10
     for mem in memories:
         rerank = safe(mem.get("rerank_score"))
         rag = safe(mem.get("rag_score") or mem.get("similarity_score") or mem.get("semantic_score"))
