@@ -675,22 +675,30 @@ async def extract_hash_sphere_memories(
                     session, user_uuid=user_uuid, seed_facts=seeds,
                 )
                 base = max((float(m.get("hybrid_score", 0.0) or 0.0) for m in seed_dicts), default=0.6)
-                added = 0
+                touched = 0
                 for f, hop in connected:
                     fid = f"fact_{f.id}"
-                    if fid in all_memories:
-                        continue
-                    entry = {
-                        "id": fid, "content": f.fact, "type": "fact",
-                        "is_fact": True, "is_graph": True, "hop": hop,
-                        "rag_score": 0.0, "gravity_score": 0.0,
-                        "hybrid_score": base * (0.7 ** hop),
-                        "timestamp": f.created_at.isoformat() if f.created_at else None,
-                    }
-                    all_memories[fid] = entry
-                    ranked_memories.append(entry)
-                    added += 1
-                if added:
+                    graph_score = base * (0.7 ** hop)  # elevated: connected to a top seed
+                    existing = all_memories.get(fid)
+                    if existing is not None:
+                        # BOOST an already-present connected fact (the multi-hop answer)
+                        if graph_score > float(existing.get("hybrid_score", 0.0) or 0.0):
+                            existing["hybrid_score"] = graph_score
+                        existing["is_graph"] = True
+                        existing["hop"] = hop
+                        touched += 1
+                    else:
+                        entry = {
+                            "id": fid, "content": f.fact, "type": "fact",
+                            "is_fact": True, "is_graph": True, "hop": hop,
+                            "rag_score": 0.0, "gravity_score": 0.0,
+                            "hybrid_score": graph_score,
+                            "timestamp": f.created_at.isoformat() if f.created_at else None,
+                        }
+                        all_memories[fid] = entry
+                        ranked_memories.append(entry)
+                        touched += 1
+                if touched:
                     methods_used.append("knowledge_graph")
                     ranked_memories.sort(key=lambda m: float(m.get("hybrid_score", 0.0) or 0.0), reverse=True)
     except Exception as e:
