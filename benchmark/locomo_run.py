@@ -28,6 +28,7 @@ N_SAMPLES = int(os.getenv("N_SAMPLES", "2"))
 QA_LIMIT = int(os.getenv("QA_LIMIT", "0"))  # 0 = all questions per sample
 LIMIT = int(os.getenv("LIMIT", "20"))
 SKIP_ENRICH = os.getenv("SKIP_ENRICH", "1") == "1"
+ENRICH_WAIT = int(os.getenv("ENRICH_WAIT", "0"))  # secs to let async fact extraction catch up
 CAT = {1: "multi-hop", 2: "temporal", 3: "open-domain", 4: "single-hop", 5: "adversarial"}
 
 
@@ -96,6 +97,9 @@ async def run():
             for k in sess_keys:
                 await ingest_session(client, user_id, conv[k], date_time=conv.get(f"{k}_date_time"))
             await asyncio.sleep(1)
+            if ENRICH_WAIT:
+                print(f"  waiting {ENRICH_WAIT}s for async fact extraction...", flush=True)
+                await asyncio.sleep(ENRICH_WAIT)
             print(f"[sample {si+1}/{len(samples)}] {sid}: ingested {sum(len(conv[k]) for k in sess_keys)} turns, {len(sample.get('qa',[]))} questions", flush=True)
 
             qa_list = sample.get("qa", [])
