@@ -60,8 +60,11 @@ def rank_memories(memories: List[Dict]) -> List[Dict]:
     #   assoc    — self-organizing mesh: associative recall of wired memories
     #   resonance— embedding-cosine variant
     # Gravity's weight rises once the trained projection head sharpens topic.
-    W_RAG, W_GRAV, W_BM25, W_ASSOC, W_RES = 1.0, 0.30, 0.25, 0.30, 0.10
+    # When the cross-encoder ran, IT is the primary discriminator (sharpest
+    # relevance); cosine + physics corroborate. Otherwise cosine leads.
+    W_RERANK, W_RAG, W_GRAV, W_BM25, W_ASSOC, W_RES = 1.8, 1.0, 0.30, 0.25, 0.30, 0.10
     for mem in memories:
+        rerank = safe(mem.get("rerank_score"))
         rag = safe(mem.get("rag_score") or mem.get("similarity_score") or mem.get("semantic_score"))
         grav = safe(mem.get("gravity_score"))
         bm25 = safe(mem.get("bm25_score"))
@@ -71,7 +74,10 @@ def rank_memories(memories: List[Dict]) -> List[Dict]:
         # only credit it when it's a proper 0-1 cosine.
         res = res if 0.0 <= res <= 1.0 else 0.0
 
-        score = (W_RAG * rag) + (W_GRAV * grav) + (W_BM25 * bm25) + (W_ASSOC * assoc) + (W_RES * res)
+        score = (
+            (W_RERANK * rerank) + (W_RAG * rag) + (W_GRAV * grav)
+            + (W_BM25 * bm25) + (W_ASSOC * assoc) + (W_RES * res)
+        )
 
         recency = safe(mem.get("recency_score"), 0.5)
         score *= (1.0 + RECENCY_BOOST_MAX * recency)

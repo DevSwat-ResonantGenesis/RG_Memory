@@ -20,7 +20,7 @@ from .services.memory_encryption import decrypt_memory_content
 from .services.pgvector_search import pgvector_search
 from .services.hash_sphere_core import encode_core, gravity as hs_gravity, core_from_stored
 from .services.hash_sphere_model import hash_sphere_model
-from .services import hash_sphere_anchors, hash_sphere_mesh, hash_sphere_chain
+from .services import hash_sphere_anchors, hash_sphere_mesh, hash_sphere_chain, reranker
 from .schemas import (
     HashSphereExtractRequest,
     HashSphereExtractResponse,
@@ -571,6 +571,19 @@ async def extract_hash_sphere_memories(
     if wells:
         methods_used.append("anchor_field")
 
+    # CROSS-ENCODER precision rerank over the candidate pool — the sharpest
+    # relevance signal (joint query-memory encoding). Bounded to cap latency.
+    try:
+        pool = memories_list[:30]
+        docs = [m.get("content", "") or "" for m in pool]
+        rr = await reranker.rerank_scores(request.query, docs)
+        if rr:
+            for m, s in zip(pool, rr):
+                m["rerank_score"] = s
+            methods_used.append("cross_encoder")
+    except Exception as e:
+        logger.debug("Rerank skipped: %s", e)
+
     # Normalize BM25 scores to 0-1 range
     raw_bm25 = [m.get("bm25_score", 0.0) for m in memories_list]
     max_bm25 = max(raw_bm25) if raw_bm25 else 1.0
@@ -605,7 +618,18 @@ async def extract_hash_sphere_memories(
     GRAVITY_FLOOR = float(os.getenv("MIN_GRAVITY_SCORE", "0.12"))
     have_gravity = "hash_sphere_gravity" in methods_used
     have_rag = "rag_semantic" in methods_used
-    if have_gravity or (min_score and min_score > 0 and have_rag):
+    have_rerank = "cross_encoder" in methods_used
+    RERANK_FLOOR = float(os.getenv("MIN_RERANK_SCORE", "0.35"))
+    if have_rerank:
+        # Cross-encoder is authoritative when present: keep confident rerank hits
+        # (+ associative-mesh hits). Do NOT OR in the permissive gravity floor —
+        # that would re-admit structurally-similar topic noise.
+        ranked_memories = [
+            m for m in ranked_memories
+            if float(m.get("rerank_score", 0.0) or 0.0) >= RERANK_FLOOR
+            or float(m.get("assoc_weight", 0.0) or 0.0) >= 0.2
+        ]
+    elif have_gravity or (min_score and min_score > 0 and have_rag):
         ranked_memories = [
             m for m in ranked_memories
             if (have_gravity and float(m.get("gravity_score", 0.0) or 0.0) >= GRAVITY_FLOOR)
@@ -661,11 +685,16 @@ async def extract_hash_sphere_memories(
     confidence = 0.0
     if response_memories:
         top = response_memories[0]
+        top_dict = top_memories[0] if top_memories else {}
+        top_rerank = float(top_dict.get("rerank_score", 0.0) or 0.0)
         top_gravity = float(top.gravity_force or 0.0)
         top_rag = float(top.rag_score or 0.0)
-        # RAG (cosine) is the sharper discriminator on the untrained 12-D space,
-        # so it leads the confidence blend; gravity corroborates.
-        confidence = round(0.4 * top_gravity + 0.6 * top_rag, 4)
+        # The cross-encoder is the sharpest relevance signal — when it ran it drives
+        # confidence; else fall back to the cosine-led blend.
+        if "cross_encoder" in methods_used:
+            confidence = round(0.7 * top_rerank + 0.2 * top_rag + 0.1 * top_gravity, 4)
+        else:
+            confidence = round(0.6 * top_rag + 0.4 * top_gravity, 4)
     conf_threshold = float(os.getenv("MEMORY_CONFIDENCE_THRESHOLD", "0.55"))
     answer_from_memory = confidence >= conf_threshold
 
