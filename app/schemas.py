@@ -15,6 +15,9 @@ class MemoryIngestRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
     generate_embedding: bool = True
     agent_hash: Optional[str] = None
+    # Benchmark/bulk mode: skip the per-memory LLM fact-extraction + on-chain
+    # anchoring background tasks (they're costly at bulk-ingest scale).
+    skip_enrichment: bool = False
 
 
 class MemoryRecordResponse(BaseModel):

@@ -313,6 +313,7 @@ async def ingest_memory(
     # never blocks or fails the ingest response).
     if (
         background_tasks is not None
+        and not payload.skip_enrichment
         and settings.ENABLE_FACT_EXTRACTION
         and payload.content
         and len(payload.content) >= settings.FACT_EXTRACTION_MIN_CHARS
@@ -328,7 +329,7 @@ async def ingest_memory(
 
     # RFC-0002 Wave 4: anchor this memory on-chain (hashes only) for immutable
     # proof-of-existence. Best-effort background task.
-    if background_tasks is not None:
+    if background_tasks is not None and not payload.skip_enrichment:
         background_tasks.add_task(
             _anchor_onchain_task,
             str(record.id),
