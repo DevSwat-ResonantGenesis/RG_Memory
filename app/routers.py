@@ -980,6 +980,7 @@ async def list_facts(
                 "attribute": f.attribute,
                 "value": f.value,
                 "confidence": f.confidence,
+                "corroboration_count": int((f.extra_metadata or {}).get("corroboration_count", 1)),
                 "status": f.status,
                 "superseded_by": str(f.superseded_by) if f.superseded_by else None,
                 "memory_id": str(f.memory_id) if f.memory_id else None,

@@ -23,11 +23,16 @@ import json
 import logging
 import re
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import httpx
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+
+# Crystallization: how far a corroborated fact's confidence moves toward 1.0
+# on each repeat observation (asymptotic — a fact hardens but never exceeds 1.0).
+CRYSTAL_STEP = 0.34
 
 from ..config import settings
 from ..models import MemoryFact
@@ -149,14 +154,29 @@ class FactExtractionService:
             entity, attribute, value = f["entity"], f["attribute"], f["value"]
             fhash = _fact_hash(str(user_id) if user_id else None, entity, attribute, value)
 
-            # Exact dedup: same triple already present and active → skip
+            # Crystallization: same triple already present and active → don't
+            # discard the repeat. Corroboration HARDENS the fact — bump its
+            # confidence toward 1.0 and track how many times it's been observed.
+            # (Immutable model: we never delete, we strengthen.)
             existing = await session.execute(
-                select(MemoryFact.id).where(
+                select(MemoryFact).where(
                     MemoryFact.fact_hash == fhash,
                     MemoryFact.status == "active",
                 ).limit(1)
             )
-            if existing.scalar() is not None:
+            prior = existing.scalar_one_or_none()
+            if prior is not None:
+                new_conf = f.get("confidence", 0.5)
+                old_conf = float(prior.confidence or 0.0)
+                # Asymptotic reinforcement toward 1.0, floored by the fresh reading.
+                prior.confidence = round(
+                    max(old_conf + CRYSTAL_STEP * (1.0 - old_conf), float(new_conf)), 4
+                )
+                meta = dict(prior.extra_metadata or {})
+                meta["corroboration_count"] = int(meta.get("corroboration_count", 1)) + 1
+                meta["last_corroborated"] = datetime.now(timezone.utc).isoformat()
+                prior.extra_metadata = meta  # reassign so ORM detects JSON change
+                stored += 1
                 continue
 
             new_fact = MemoryFact(

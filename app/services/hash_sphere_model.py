@@ -168,8 +168,23 @@ class HashSphereModel:
             return False
 
     def predict(self, embedding: Optional[List[float]]) -> Optional[Dict]:
-        """embedding → {clusters: {α…ζ}, temperature, polarity}. None if unavailable."""
-        if not self._built or not embedding:
+        """embedding → {clusters: {α…ζ}, temperature, polarity}. None if unavailable.
+
+        Wave 2.5: if the trained projection head is active (flag on + weights
+        present), it supersedes the fixed seed-centroid mapping below. When it is
+        off or returns None, we fall through to the stable Wave-2 path — so the
+        live behaviour is unchanged unless the head is explicitly enabled.
+        """
+        if not embedding:
+            return None
+        try:
+            from .hash_sphere_projection import projection_head
+            learned = projection_head.predict(embedding)
+            if learned is not None:
+                return learned
+        except Exception:
+            pass
+        if not self._built:
             return None
         e = _normalize(list(embedding))
 
