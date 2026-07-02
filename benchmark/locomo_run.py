@@ -48,7 +48,7 @@ async def llm(client, system, user, max_tokens=256):
         return ""
 
 
-async def ingest_session(client, user_id, turns):
+async def ingest_session(client, user_id, turns, date_time=None):
     for t in turns:
         text = f"{t.get('speaker','')}: {t.get('text','')}".strip()
         if len(text) < 3:
@@ -57,19 +57,25 @@ async def ingest_session(client, user_id, turns):
             await client.post(f"{MEM}/memory/ingest", json={
                 "user_id": user_id, "org_id": user_id, "source": "locomo",
                 "content": text, "generate_embedding": True,
-                "skip_enrichment": SKIP_ENRICH}, timeout=30)
+                "skip_enrichment": SKIP_ENRICH,
+                "event_timestamp": date_time}, timeout=30)  # temporal: event date
         except Exception:
             pass
 
 
 async def retrieve(client, user_id, question):
+    """Return [(date, content)] so the answer LLM can read WHEN each memory is from."""
     try:
         r = await client.post(f"{MEM}/memory/hash-sphere/extract", json={
             "user_id": user_id, "org_id": user_id, "query": question,
             "limit": LIMIT, "min_score": 0.0}, timeout=60)
         if r.status_code != 200:
             return []
-        return [m["content"] for m in r.json().get("memories", [])]
+        out = []
+        for m in r.json().get("memories", []):
+            ts = (m.get("timestamp") or "")[:10]  # YYYY-MM-DD
+            out.append((ts, m["content"]))
+        return out
     except Exception:
         return []
 
@@ -88,7 +94,7 @@ async def run():
             sess_keys = sorted([k for k in conv if k.startswith("session_") and isinstance(conv[k], list)],
                                key=lambda k: int(k.split("_")[1]))
             for k in sess_keys:
-                await ingest_session(client, user_id, conv[k])
+                await ingest_session(client, user_id, conv[k], date_time=conv.get(f"{k}_date_time"))
             await asyncio.sleep(1)
             print(f"[sample {si+1}/{len(samples)}] {sid}: ingested {sum(len(conv[k]) for k in sess_keys)} turns, {len(sample.get('qa',[]))} questions", flush=True)
 
@@ -99,9 +105,9 @@ async def run():
                 q, gold = qa.get("question", ""), str(qa.get("answer", qa.get("adversarial_answer", "")))
                 cat = qa.get("category", 0)
                 mems = await retrieve(client, user_id, q)
-                ctx = "\n".join(f"- {m}" for m in mems[:LIMIT]) or "(no memories)"
+                ctx = "\n".join(f"- [{ts}] {c}" for ts, c in mems[:LIMIT]) or "(no memories)"
                 ans = await llm(client,
-                    "Answer the question using ONLY the memories. Be concise. If the memories don't contain the answer, say 'I don't know'.",
+                    "Answer the question using ONLY the dated memories. Each memory is prefixed with its date [YYYY-MM-DD]. For 'when' questions, answer with the date. Be concise. If the memories don't contain the answer, say 'I don't know'.",
                     f"Memories:\n{ctx}\n\nQuestion: {q}\nAnswer:")
                 verdict = await llm(client,
                     "You are a strict grader. Reply with exactly CORRECT or WRONG.",

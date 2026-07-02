@@ -18,6 +18,10 @@ class MemoryIngestRequest(BaseModel):
     # Benchmark/bulk mode: skip the per-memory LLM fact-extraction + on-chain
     # anchoring background tasks (they're costly at bulk-ingest scale).
     skip_enrichment: bool = False
+    # Temporal reasoning: the real event time of this memory (ISO or natural
+    # date). Sets created_at so "when did X happen" / date-range queries work.
+    # Omit for live chat (defaults to now).
+    event_timestamp: Optional[str] = None
 
 
 class MemoryRecordResponse(BaseModel):

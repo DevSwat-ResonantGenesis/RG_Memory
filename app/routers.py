@@ -194,9 +194,21 @@ async def ingest_memory(
             perf_tracker.increment("dedup_skipped")
             return {"id": str(dup_id), "status": "duplicate", "message": "Exact duplicate — not stored"}
     
+    # Temporal: parse an explicit event time (sets created_at so "when did X"
+    # and date-range queries reflect the EVENT time, not the import time).
+    event_dt = None
+    if payload.event_timestamp:
+        try:
+            from dateutil import parser as _dtparser
+            event_dt = _dtparser.parse(payload.event_timestamp, fuzzy=True)
+            if event_dt.tzinfo is None:
+                event_dt = event_dt.replace(tzinfo=timezone.utc)
+        except Exception:
+            event_dt = None
+
     # Encrypt content if encryption is enabled
     stored_content = encrypt_memory_content(payload.content)
-    
+
     record = MemoryRecord(
         chat_id=chat_uuid,
         user_id=user_uuid,
@@ -234,6 +246,8 @@ async def ingest_memory(
         # Full 12-D core + viz coords as JSON (metric_vector read by retrieval).
         hash_sphere_coords={**coords.to_dict(), **core_dict},
     )
+    if event_dt is not None:
+        record.created_at = event_dt  # temporal: event time, not import time
     session.add(record)
     await session.commit()
     await session.refresh(record)
