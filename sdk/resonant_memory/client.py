@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
-DEFAULT_BASE_URL = "https://api.dev-swat.com"  # gateway (meters + isolates + bills)
+DEFAULT_BASE_URL = "https://dev-swat.com/api/v1"  # public gateway (meters + isolates + bills)
 
 
 class ResonantMemoryError(Exception):
@@ -19,7 +19,7 @@ class InsufficientCreditsError(ResonantMemoryError):
 class ResonantMemory:
     """Client for the Resonant Memory API.
 
-    Auth: an org API key (``rg_live_...``) created in the dashboard. All calls
+    Auth: an org API key (``RG-<prefix>.<secret>``) created in the dashboard. All calls
     are scoped to your org; pass ``user_id`` / ``agent_hash`` to isolate memories
     to a specific user or agent (the blockchain-block model):
       - user_id only              → the user's private memory block
