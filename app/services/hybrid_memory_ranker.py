@@ -13,14 +13,36 @@ XYZ coordinates are VISUALIZATION ONLY — never used for ranking.
 
 from __future__ import annotations
 
+import os
 from typing import List, Dict
 
 # RRF constant (standard: 60, used by Elasticsearch, Pinecone, etc.)
 RRF_K = 60
 
+
+def _envf(name: str, default: float) -> float:
+    """Read a float tuning knob from env, falling back to the proven default.
+    Lets LOCOMO tuning be a config sweep (no code edit / redeploy) — and with no
+    env set, the ranking is byte-for-byte the benchmark-validated behaviour."""
+    try:
+        v = os.getenv(name)
+        return float(v) if v is not None and v.strip() != "" else default
+    except (ValueError, TypeError):
+        return default
+
+
 # Recency boost: how much recent memories get bumped (multiplicative)
 # A memory from today gets up to 1 + RECENCY_BOOST_MAX, older ones decay toward 1.0
-RECENCY_BOOST_MAX = 0.15
+RECENCY_BOOST_MAX = _envf("MEMORY_W_RECENCY", 0.15)
+
+# Signal weights — defaults are the benchmark-validated values; override via env
+# (MEMORY_W_RERANK, ...) to sweep LOCOMO without touching code.
+_W_RERANK = _envf("MEMORY_W_RERANK", 1.2)
+_W_RAG = _envf("MEMORY_W_RAG", 1.0)
+_W_GRAV = _envf("MEMORY_W_GRAV", 0.30)
+_W_BM25 = _envf("MEMORY_W_BM25", 0.25)
+_W_ASSOC = _envf("MEMORY_W_ASSOC", 0.30)
+_W_RES = _envf("MEMORY_W_RES", 0.10)
 
 
 def safe(v, default=0.0):
@@ -62,7 +84,9 @@ def rank_memories(memories: List[Dict]) -> List[Dict]:
     # Gravity's weight rises once the trained projection head sharpens topic.
     # When the cross-encoder ran, IT is the primary discriminator (sharpest
     # relevance); cosine + physics corroborate. Otherwise cosine leads.
-    W_RERANK, W_RAG, W_GRAV, W_BM25, W_ASSOC, W_RES = 1.2, 1.0, 0.30, 0.25, 0.30, 0.10
+    W_RERANK, W_RAG, W_GRAV, W_BM25, W_ASSOC, W_RES = (
+        _W_RERANK, _W_RAG, _W_GRAV, _W_BM25, _W_ASSOC, _W_RES
+    )
     for mem in memories:
         rerank = safe(mem.get("rerank_score"))
         rag = safe(mem.get("rag_score") or mem.get("similarity_score") or mem.get("semantic_score"))
