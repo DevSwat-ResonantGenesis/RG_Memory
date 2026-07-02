@@ -108,6 +108,8 @@ class MemoryIngestRequest(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
     generate_embedding: bool = True
     agent_hash: Optional[str] = None
+    skip_enrichment: bool = False
+    event_timestamp: Optional[str] = None
 
 
 class EmbedRequest(BaseModel):
@@ -131,6 +133,8 @@ async def ingest_memory(request: MemoryIngestRequest, req: Request, background_t
         metadata=request.metadata,
         generate_embedding=request.generate_embedding,
         agent_hash=request.agent_hash,
+        skip_enrichment=request.skip_enrichment,
+        event_timestamp=request.event_timestamp,
     )
 
     # Deduct credits AFTER successful storage to avoid charging for failed operations
