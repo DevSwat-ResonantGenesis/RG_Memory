@@ -9,8 +9,8 @@ authors = [{ name = "Resonant Genesis" }]
 license = { text = "Proprietary" }
 
 [project.urls]
-Homepage = "https://dev-swat.com/memory"
-Documentation = "https://dev-swat.com/docs/memory-api"
+Homepage = "https://resonant.dev-swat.com/memory"
+Documentation = "https://resonant.dev-swat.com/docs/memory-api"
 
 [build-system]
 requires = ["setuptools>=61"]

@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
-DEFAULT_BASE_URL = "https://dev-swat.com/api/v1"  # public gateway (meters + isolates + bills)
+DEFAULT_BASE_URL = "https://resonant.dev-swat.com/api/v1"  # public gateway (meters + isolates + bills)
 
 
 class ResonantMemoryError(Exception):
