@@ -36,7 +36,15 @@ CREDIT_COSTS = {
 
 BILLING_SERVICE_URL = os.getenv("BILLING_SERVICE_URL", "http://billing_service:8000")
 
-async def deduct_credits(user_id: str, amount: int, reference_type: str, description: str) -> dict:
+async def deduct_credits(
+    user_id: str,
+    amount: int,
+    reference_type: str,
+    description: str,
+    user_role: Optional[str] = None,
+    is_superuser: bool = False,
+    unlimited_credits: bool = False,
+) -> dict:
     """Deduct credits from user's balance via billing service."""
     if amount <= 0:
         return {"status": "skipped", "reason": "no credits to deduct"}
@@ -49,7 +57,12 @@ async def deduct_credits(user_id: str, amount: int, reference_type: str, descrip
                     "reference_type": reference_type,
                     "description": description,
                 },
-                headers={"X-User-Id": user_id},
+                headers={
+                    "X-User-Id": user_id,
+                    "X-User-Role": user_role or "user",
+                    "X-Is-Superuser": str(is_superuser).lower(),
+                    "X-Unlimited-Credits": str(unlimited_credits).lower(),
+                },
                 timeout=5.0,
             )
             response.raise_for_status()
@@ -57,6 +70,17 @@ async def deduct_credits(user_id: str, amount: int, reference_type: str, descrip
     except Exception as e:
         logger.warning(f"Credit deduction failed: {e}")
         return {"error": str(e)}
+
+
+def _billing_flags_from_headers(headers) -> Dict[str, Any]:
+    """Extract the superuser/unlimited-credits/role context forwarded by the gateway,
+    mirroring RG_Chat's credit_deduction.py so memory-service billing calls get the
+    same bypass as chat_message deductions instead of always billing at face value."""
+    return {
+        "user_role": headers.get("x-user-role") or "user",
+        "is_superuser": (headers.get("x-is-superuser") or "").strip().lower() == "true",
+        "unlimited_credits": (headers.get("x-unlimited-credits") or "").strip().lower() in ("true", "1", "yes"),
+    }
 
 # Single service entrypoint
 app = FastAPI(
@@ -145,7 +169,11 @@ async def ingest_memory(request: MemoryIngestRequest, req: Request, background_t
             # Only deduct credits if storage succeeded
             user_id = req.headers.get("x-user-id") or request.user_id
             if user_id and result and getattr(result, "id", None):
-                await deduct_credits(user_id, CREDIT_COSTS["store"], "memory_store", f"Memory ingest from {request.source}")
+                billing_flags = _billing_flags_from_headers(req.headers)
+                await deduct_credits(
+                    user_id, CREDIT_COSTS["store"], "memory_store", f"Memory ingest from {request.source}",
+                    **billing_flags,
+                )
                 logger.info(f"💳 Deducted {CREDIT_COSTS['store']} credits for memory ingest")
             return result
         except Exception as e:
@@ -159,7 +187,8 @@ async def embed_content(payload: EmbedRequest, request: Request = None):
     """Embed content into vector space with credit deduction."""
     user_id = request.headers.get("x-user-id") if request else None
     if user_id:
-        await deduct_credits(user_id, CREDIT_COSTS["embed"], "memory_embed", "Content embedding")
+        billing_flags = _billing_flags_from_headers(request.headers) if request else {}
+        await deduct_credits(user_id, CREDIT_COSTS["embed"], "memory_embed", "Content embedding", **billing_flags)
         logger.info(f"💳 Deducted {CREDIT_COSTS['embed']} credits for embedding")
 
     texts: List[str] = []
