@@ -1,6 +1,6 @@
 # RG Memory
 
-> **Part of the [DevSwat](https://resonant.dev-swat.com) platform** — Core memory engine with Hash Sphere coordinate system, RAG, vector search, and ML-powered embeddings.
+> **Part of the [DevSwat](https://dev-swat.com) platform** — Core memory engine with Hash Sphere coordinate system, RAG, vector search, and ML-powered embeddings.
 
 [![Status: Production](https://img.shields.io/badge/Status-Production-brightgreen.svg)]()
 [![License: RG Source Available](https://img.shields.io/badge/License-RG%20Source%20Available-blue.svg)](LICENSE.txt)
@@ -110,7 +110,7 @@ Every memory is projected into a 3D semantic space with:
 │  Hash Sphere viz  ──→ GET  /memory/visualizer/hash-sphere        │
 │  Anchor list      ──→ GET  /memory/hash-sphere/anchors           │
 └───────────────────────────┬──────────────────────────────────────┘
-                            │ HTTPS (resonant.dev-swat.com)
+                            │ HTTPS (dev-swat.com)
                             ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │                    RG_Gateway (FastAPI proxy)                     │
@@ -554,4 +554,4 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
 ---
 
-**Organization**: [DevSwat-ResonantGenesis](https://github.com/DevSwat-ResonantGenesis) | **Platform**: [resonant.dev-swat.com](https://resonant.dev-swat.com)
+**Organization**: [DevSwat-ResonantGenesis](https://github.com/DevSwat-ResonantGenesis) | **Platform**: [dev-swat.com](https://dev-swat.com)
