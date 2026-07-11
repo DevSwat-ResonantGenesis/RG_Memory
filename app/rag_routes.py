@@ -351,7 +351,7 @@ async def ask_with_rag(
             
             similarities = []
             for emb in embeddings_list:
-                similarity = embeddings_generator.cosine_similarity(query_embedding, emb.embedding)
+                similarity = float(embeddings_generator.cosine_similarity(query_embedding, emb.embedding))
                 similarities.append((emb.memory_id, similarity))
             
             similarities.sort(key=lambda x: x[1], reverse=True)
@@ -366,7 +366,7 @@ async def ask_with_rag(
                 sources = [
                     {
                         "id": str(r.id),
-                        "content": r.content[:500],
+                        "content": (decrypt_memory_content(r.content) if r.content else "")[:500],
                         "score": similarity_map.get(r.id, 0.0),
                         "hash": r.hash,
                         "xyz": [r.xyz_x, r.xyz_y, r.xyz_z] if r.xyz_x else None,
@@ -600,24 +600,25 @@ async def get_memory_universe(
         y = (y - 0.5) * 400
         z = (z - 0.5) * 400
         
+        decrypted_content = decrypt_memory_content(r.content) if r.content else ""
         metadata = r.extra_metadata or {}
         layer = metadata.get("layer", "active")
         cluster = metadata.get("cluster", "default")
         importance = metadata.get("importance", 0.5)
         tags = metadata.get("tags", [])
         access_count = metadata.get("access_count", 0)
-        title = metadata.get("title", r.content[:50] if r.content else "Untitled")
-        
+        title = metadata.get("title", decrypted_content[:50] if decrypted_content else "Untitled")
+
         if cluster not in clusters_map:
             clusters_map[cluster] = {"name": cluster, "count": 0, "center": [0, 0, 0]}
         clusters_map[cluster]["count"] += 1
         clusters_map[cluster]["center"][0] += x
         clusters_map[cluster]["center"][1] += y
         clusters_map[cluster]["center"][2] += z
-        
+
         nodes.append(MemoryNodeResponse(
             id=str(r.id),
-            content=r.content[:500] if r.content else "",
+            content=decrypted_content[:500],
             title=title,
             x=x,
             y=y,
